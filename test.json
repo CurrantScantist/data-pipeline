@@ -1,0 +1,43 @@
+{
+    "facebook/react": {
+        "releases": {
+            "17.0.2 (March 22, 2021)": {
+                "created_at": "2021-03-22T20:01:35Z",
+                "tag_name": "v17.0.2",
+                "published_at": "2021-03-22T22:00:26Z",
+                "release_id": 40190065,
+                "release_link": "https://github.com/facebook/react/releases/tag/v17.0.2",
+                "release_description": "### React DOM\r\n\r\n* Remove an unused dependency to address the [`SharedArrayBuffer` cross-origin isolation warning](https://developer.chrome.com/blog/enabling-shared-array-buffer/). ([@koba04](https://github.com/koba04) and [@bvaughn](https://github.com/bvaughn) in [#20831](https://github.com/facebook/react/pull/20831), [#20832](https://github.com/facebook/react/pull/20832), and [#20840](https://github.com/facebook/react/pull/20840))\r\n\r\n## Artifacts\r\n\r\n- react: https://unpkg.com/react@17.0.2/umd/\r\n- react-art: https://unpkg.com/react-art@17.0.2/umd/\r\n- react-dom: https://unpkg.com/react-dom@17.0.2/umd/\r\n- react-is: https://unpkg.com/react-is@17.0.2/umd/\r\n- react-test-renderer: https://unpkg.com/react-test-renderer@17.0.2/umd/\r\n- scheduler: https://unpkg.com/scheduler@0.20.2/umd/"
+            }
+        },
+        "description": "A declarative, efficient, and flexible JavaScript library for building user interfaces.",
+        "forks": 34369,
+        "forks_count": 34369,
+        "language": "JavaScript",
+        "stargazers_count": 170070,
+        "watchers_count": 170070,
+        "watchers": 170070,
+        "size": 166406,
+        "default_branch": "master",
+        "open_issues_count": 732,
+        "open_issues": 732,
+        "has_issues": true,
+        "archived": false,
+        "disabled": false,
+        "pushed_at": "2021-06-18T00:07:43Z",
+        "created_at": "2013-05-24T16:15:54Z",
+        "updated_at": "2021-06-18T13:31:57Z",
+        "languages": {
+            "JavaScript": 5508434,
+            "HTML": 115701,
+            "CSS": 71241,
+            "C++": 44278,
+            "TypeScript": 20728,
+            "CoffeeScript": 16779,
+            "C": 5225,
+            "Shell": 3830,
+            "Python": 259,
+            "Makefile": 189
+        }
+    }
+}
