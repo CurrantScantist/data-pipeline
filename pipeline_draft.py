@@ -8,6 +8,16 @@ import os
 
 """
 LOOPING THROUHG DATA FOLDER TO GET REPOSITORY NAMES
+
+data folder will have the following structure (for now):
+.
++-- data
+|   +-- react                                           (repository name without the owner)
+|       +-- name.txt                                    (file containing a single line with the fullname of the repository, eg, 'facebook/react')
+|       +-- 1                                           (directory for a single release, the name is irrelevant since it will be stored in a .txt file also)
+|           +-- release.txt                             (file containing a single line with the full release name, eg, '17.0.2 (March 22, 2021)')
+|           +-- **other data from scantist apps**       (folders of manually downloaded data from scantist sca, archtimize, etc)
+
 """
 base = "./data"
 for repo in os.listdir('./data'):
