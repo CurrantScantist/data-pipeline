@@ -79,10 +79,14 @@ TODO:
  - the license for the repo
 
 """
+headers = {
+    'Authorization': secrets.ACCESS_TOKEN
+}
+
 for repository in data.keys():
     # get whole repository stats
     owner, repo = repository.split("/")
-    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}")
+    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}", headers=headers)
     r = r.json()
 
     data[repository]["name"] = repo
@@ -101,20 +105,23 @@ for repository in data.keys():
             print(f"key '{key}' was not found in the response")
 
     # get the repository languages
-    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/languages")
+    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/languages", headers=headers)
     data[repository]["languages"] = r.json()
 
     # get the topics for the repository
-    # TODO: change the accept header for the topics request to match the github rest API so it works
-    # try:
-    #     r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/topics")
-    #     data[repository]["topics"] = r.json()["names"]
-    # except Exception:
-    #     print(f"could not retrieve topics for {owner}/{repo}")
+    headers_for_topics = {
+        'Authorization': secrets.ACCESS_TOKEN,
+        'Accept': 'application/vnd.github.mercy-preview+json'
+    }
+    try:
+        r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/topics", headers=headers_for_topics)
+        data[repository]["topics"] = r.json()["names"]
+    except Exception:
+        print(f"could not retrieve topics for {owner}/{repo}")
 
 for entry in to_process:
     r = requests.get(
-        f'https://api.github.com/repos/{entry["owner"]}/{entry["repo"]}/releases')
+        f'https://api.github.com/repos/{entry["owner"]}/{entry["repo"]}/releases', headers=headers)
     r = r.json()
 
     metadata = dict()
