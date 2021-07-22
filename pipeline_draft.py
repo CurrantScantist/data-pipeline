@@ -5,10 +5,12 @@ The requests library will be used temporarily but this will likely switch to asy
 import requests
 import os
 import json
-
+from pymongo import MongoClient
+import secrets
+import ssl
 
 """
-LOOPING THROUHG DATA FOLDER TO GET REPOSITORY NAMES
+LOOPING THROUGH DATA FOLDER TO GET REPOSITORY NAMES
 
 data folder will have the following structure (for now):
 .
@@ -23,7 +25,6 @@ data folder will have the following structure (for now):
 base = "./data"
 to_process = []
 data = dict()
-
 
 for repo in os.listdir('./data'):
     if os.path.isdir(f"{base}/{repo}"):
@@ -54,7 +55,6 @@ for repo in os.listdir('./data'):
                     "release": release_name,
                 })
 
-
 """
 RETRIEVING METADATA
 
@@ -72,6 +72,11 @@ Done:
 TODO:
  - the api call for a specific release can be changed to only retrieve that release instead of all of them
  https://docs.github.com/en/rest/reference/repos#get-a-release-by-tag-name
+ - commit count
+ - lines of code
+ - contributors?
+ - commit count, size, line of code, etc for a specific release
+ - the license for the repo
 
 """
 for repository in data.keys():
@@ -80,10 +85,14 @@ for repository in data.keys():
     r = requests.get(f"https://api.github.com/repos/{owner}/{repo}")
     r = r.json()
 
+    data[repository]["name"] = repo
+    data[repository]["owner"] = owner
+
     # with open('./response.json', 'w') as file:
     #     file.write(json.dumps(r))
 
-    keys = ["description", "forks", "forks_count", "language", "stargazers_count", "watchers_count", "watchers", "size", "default_branch", "open_issues_count", "open_issues",
+    keys = ["description", "forks", "forks_count", "language", "stargazers_count", "watchers_count", "watchers", "size",
+            "default_branch", "open_issues_count", "open_issues",
             "topics", "has_issues", "archived", "disabled", "visibility", "pushed_at", "created_at", "updated_at"]
     for key in keys:
         try:
@@ -94,6 +103,14 @@ for repository in data.keys():
     # get the repository languages
     r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/languages")
     data[repository]["languages"] = r.json()
+
+    # get the topics for the repository
+    # TODO: change the accept header for the topics request to match the github rest API so it works
+    # try:
+    #     r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/topics")
+    #     data[repository]["topics"] = r.json()["names"]
+    # except Exception:
+    #     print(f"could not retrieve topics for {owner}/{repo}")
 
 for entry in to_process:
     r = requests.get(
@@ -117,3 +134,33 @@ for entry in to_process:
 
 with open('./test.json', 'w') as file:
     file.write(json.dumps(data))
+
+"""
+RETRIEVING SCANTIST SCA DATA
+link to the scantist SCA app : https://scantist.atlassian.net/wiki/spaces/SD/overview?homepageId=227934346
+link to the scantist SCA docs: https://scantist.atlassian.net/wiki/spaces/SD/overview?homepageId=227934346
+"""
+
+"""
+RETRIEVING SCANTIST ARCHTIMIZE DATA
+"""
+
+
+"""
+PUSHING DATA TO THE DATABASE
+"""
+client = MongoClient(secrets.CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+db = client['test_db']
+repo_collection = db['repositories']
+
+for repo in data.keys():
+    # check if react is already in the db
+    search_dict = {
+        "name": data[repo]['name'],
+        "owner": data[repo]['owner']
+    }
+    res = repo_collection.find_one(search_dict)
+    if res is not None:
+        repo_collection.find_one_and_replace(search_dict, data[repo])
+    else:
+        repo_collection.insert_one(data[repo])
