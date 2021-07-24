@@ -152,7 +152,6 @@ link to the scantist SCA docs: https://scantist.atlassian.net/wiki/spaces/SD/ove
 RETRIEVING SCANTIST ARCHTIMIZE DATA
 """
 
-
 """
 PUSHING DATA TO THE DATABASE
 """
@@ -161,13 +160,8 @@ db = client['test_db']
 repo_collection = db['repositories']
 
 for repo in data.keys():
-    # check if react is already in the db
     search_dict = {
         "name": data[repo]['name'],
         "owner": data[repo]['owner']
     }
-    res = repo_collection.find_one(search_dict)
-    if res is not None:
-        repo_collection.find_one_and_replace(search_dict, data[repo])
-    else:
-        repo_collection.insert_one(data[repo])
+    repo_collection.update_one(search_dict, {'$set': data[repo]}, upsert=True)
