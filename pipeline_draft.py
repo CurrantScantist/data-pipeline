@@ -78,9 +78,6 @@ for repository in tqdm(data.keys(), desc="retrieving repository data from github
     data[repository]["name"] = repo
     data[repository]["owner"] = owner
 
-    # with open('./response.json', 'w') as file:
-    #     file.write(json.dumps(r))
-
     keys = ["description", "forks", "forks_count", "language", "stargazers_count", "watchers_count", "watchers", "size",
             "default_branch", "open_issues_count", "open_issues",
             "topics", "has_issues", "archived", "disabled", "visibility", "pushed_at", "created_at", "updated_at"]
@@ -119,14 +116,13 @@ for entry in tqdm(to_process, desc="retrieving release data from github API"):
             metadata["tag_name"] = release["tag_name"]
             metadata["published_at"] = release["published_at"]
             metadata["release_id"] = release["id"]
-            # the api url is also available
             metadata["release_link"] = release["html_url"]
             metadata["release_description"] = release["body"]
 
     repo_name = entry["owner"] + '/' + entry["repo"]
     data[repo_name]["releases"][entry["release"]] = metadata
 
-with open('./test.json', 'w') as file:
+with open('./data.json', 'w') as file:
     file.write(json.dumps(data))
 
 """
