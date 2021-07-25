@@ -8,6 +8,7 @@ import ssl
 
 import requests
 from pymongo import MongoClient
+from tqdm import tqdm
 
 import secrets
 
@@ -28,7 +29,7 @@ base = "./data"
 to_process = []
 data = dict()
 
-for repo in os.listdir('./data'):
+for repo in tqdm(os.listdir('./data'), desc="reading input files"):
     if os.path.isdir(f"{base}/{repo}"):
 
         repo_name = ""
@@ -68,7 +69,7 @@ TODO:
  - the license for the repo
 
 """
-for repository in data.keys():
+for repository in tqdm(data.keys(), desc="retrieving repository data from github API"):
     # get whole repository stats
     owner, repo = repository.split("/")
     r = requests.get(f"https://api.github.com/repos/{owner}/{repo}", auth=('user', secrets.ACCESS_TOKEN))
@@ -87,7 +88,8 @@ for repository in data.keys():
         try:
             data[repository][key] = r[key]
         except KeyError:
-            print(f"key '{key}' was not found in the response")
+            # print(f"key '{key}' was not found in the response")
+            pass
 
     # get the repository languages
     r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/languages", auth=('user', secrets.ACCESS_TOKEN))
@@ -104,7 +106,7 @@ for repository in data.keys():
     except Exception:
         print(f"could not retrieve topics for {owner}/{repo}")
 
-for entry in to_process:
+for entry in tqdm(to_process, desc="retrieving release data from github API"):
     r = requests.get(f'https://api.github.com/repos/{entry["owner"]}/{entry["repo"]}/releases',
                      auth=('user', secrets.ACCESS_TOKEN))
     r = r.json()
@@ -144,7 +146,7 @@ client = MongoClient(secrets.CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
 db = client['test_db']
 repo_collection = db['repositories']
 
-for repo in data.keys():
+for repo in tqdm(data.keys(), desc="pushing the data to mongoDB"):
     search_dict = {
         "name": data[repo]['name'],
         "owner": data[repo]['owner']
