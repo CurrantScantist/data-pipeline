@@ -2,31 +2,14 @@
 For simplicity, the pipeline will be written in this file first as a draft without custom typechecking, logs, visualiser, etc
 The requests library will be used temporarily but this will likely switch to asyncio + aiohttp later on for efficiency.
 """
-import requests
-import os
 import json
-from pymongo import MongoClient
-import secrets
+import os
 import ssl
-import time
 
-REQUEST_DELAY = 300  # milliseconds between each request to the github API
+import requests
+from pymongo import MongoClient
 
-
-def fetch(url, headers=None):
-    """
-    Function for basic GET requests to the github API. Uses authentication and a small time delay between requests
-    :param url: the url for the request (query params included)
-    :param headers: options headers to add to the request such as the accepted format
-    :return: the response object for the request
-    """
-    time.sleep(round(REQUEST_DELAY/1000))
-    if headers is None:
-        headers = dict()
-
-    headers['Authorization'] = secrets.ACCESS_TOKEN
-    return requests.get(url, headers=headers)
-
+import secrets
 
 """
 LOOPING THROUGH DATA FOLDER TO GET REPOSITORY NAMES
@@ -75,17 +58,6 @@ for repo in os.listdir('./data'):
 """
 RETRIEVING METADATA
 
-Done:
- - repo name
- - repo owner
- - repo link
-
- - release created at
- - release published at
- - release id
- - release url (link to the page on github)
- - release description/body
-
 TODO:
  - the api call for a specific release can be changed to only retrieve that release instead of all of them
  https://docs.github.com/en/rest/reference/repos#get-a-release-by-tag-name
@@ -99,7 +71,7 @@ TODO:
 for repository in data.keys():
     # get whole repository stats
     owner, repo = repository.split("/")
-    r = fetch(f"https://api.github.com/repos/{owner}/{repo}")
+    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}", auth=('user', secrets.ACCESS_TOKEN))
     r = r.json()
 
     data[repository]["name"] = repo
@@ -118,7 +90,7 @@ for repository in data.keys():
             print(f"key '{key}' was not found in the response")
 
     # get the repository languages
-    r = fetch(f"https://api.github.com/repos/{owner}/{repo}/languages")
+    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/languages", auth=('user', secrets.ACCESS_TOKEN))
     data[repository]["languages"] = r.json()
 
     # get the topics for the repository
@@ -126,13 +98,15 @@ for repository in data.keys():
         'Accept': 'application/vnd.github.mercy-preview+json'
     }
     try:
-        r = fetch(f"https://api.github.com/repos/{owner}/{repo}/topics", headers=headers_for_topics)
+        r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/topics", headers=headers_for_topics,
+                         auth=('user', secrets.ACCESS_TOKEN))
         data[repository]["topics"] = r.json()["names"]
     except Exception:
         print(f"could not retrieve topics for {owner}/{repo}")
 
 for entry in to_process:
-    r = fetch(f'https://api.github.com/repos/{entry["owner"]}/{entry["repo"]}/releases')
+    r = requests.get(f'https://api.github.com/repos/{entry["owner"]}/{entry["repo"]}/releases',
+                     auth=('user', secrets.ACCESS_TOKEN))
     r = r.json()
 
     metadata = dict()
