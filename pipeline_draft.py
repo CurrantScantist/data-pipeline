@@ -1,14 +1,19 @@
 """
-For simplicity, the pipeline will be written in this file first as a draft without custom timechecking, logs, visualiser, etc
+For simplicity, the pipeline will be written in this file first as a draft without custom typechecking, logs, visualiser, etc
 The requests library will be used temporarily but this will likely switch to asyncio + aiohttp later on for efficiency.
 """
-import requests
-import os
 import json
+import os
+import ssl
 
+import requests
+from pymongo import MongoClient
+from tqdm import tqdm
+
+import secrets
 
 """
-LOOPING THROUHG DATA FOLDER TO GET REPOSITORY NAMES
+LOOPING THROUGH DATA FOLDER TO GET REPOSITORY NAMES
 
 data folder will have the following structure (for now):
 .
@@ -24,8 +29,7 @@ base = "./data"
 to_process = []
 data = dict()
 
-
-for repo in os.listdir('./data'):
+for repo in tqdm(os.listdir('./data'), desc="reading input files"):
     if os.path.isdir(f"{base}/{repo}"):
 
         repo_name = ""
@@ -39,12 +43,10 @@ for repo in os.listdir('./data'):
         for release in os.listdir(f"{base}/{repo}"):
 
             if os.path.isdir(f"{base}/{repo}/{release}"):
-                release_name = ""
                 with open(f"{base}/{repo}/{release}/release.txt", 'r') as release_name_file:
                     release_name = release_name_file.readline().strip()
 
-                print(
-                    f"repository name: {repo_name}, release name: {release_name}")
+                print(f"repository name: {repo_name}, release name: {release_name}")
 
                 data[repo_name]["releases"][release_name] = dict()
 
@@ -54,50 +56,56 @@ for repo in os.listdir('./data'):
                     "release": release_name,
                 })
 
-
 """
 RETRIEVING METADATA
-
-Done:
- - repo name
- - repo owner
- - repo link
-
- - release created at
- - release published at
- - release id
- - release url (link to the page on github)
- - release description/body
 
 TODO:
  - the api call for a specific release can be changed to only retrieve that release instead of all of them
  https://docs.github.com/en/rest/reference/repos#get-a-release-by-tag-name
+ - commit count
+ - lines of code
+ - contributors?
+ - commit count, size, line of code, etc for a specific release
+ - the license for the repo
 
 """
-for repository in data.keys():
+for repository in tqdm(data.keys(), desc="retrieving repository data from github API"):
     # get whole repository stats
     owner, repo = repository.split("/")
-    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}")
+    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}", auth=('user', secrets.ACCESS_TOKEN))
     r = r.json()
 
-    # with open('./response.json', 'w') as file:
-    #     file.write(json.dumps(r))
+    data[repository]["name"] = repo
+    data[repository]["owner"] = owner
 
-    keys = ["description", "forks", "forks_count", "language", "stargazers_count", "watchers_count", "watchers", "size", "default_branch", "open_issues_count", "open_issues",
+    keys = ["description", "forks", "forks_count", "language", "stargazers_count", "watchers_count", "watchers", "size",
+            "default_branch", "open_issues_count", "open_issues",
             "topics", "has_issues", "archived", "disabled", "visibility", "pushed_at", "created_at", "updated_at"]
     for key in keys:
         try:
             data[repository][key] = r[key]
         except KeyError:
-            print(f"key '{key}' was not found in the response")
+            # print(f"key '{key}' was not found in the response")
+            pass
 
     # get the repository languages
-    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/languages")
+    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/languages", auth=('user', secrets.ACCESS_TOKEN))
     data[repository]["languages"] = r.json()
 
-for entry in to_process:
-    r = requests.get(
-        f'https://api.github.com/repos/{entry["owner"]}/{entry["repo"]}/releases')
+    # get the topics for the repository
+    headers_for_topics = {
+        'Accept': 'application/vnd.github.mercy-preview+json'
+    }
+    try:
+        r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/topics", headers=headers_for_topics,
+                         auth=('user', secrets.ACCESS_TOKEN))
+        data[repository]["topics"] = r.json()["names"]
+    except Exception:
+        print(f"could not retrieve topics for {owner}/{repo}")
+
+for entry in tqdm(to_process, desc="retrieving release data from github API"):
+    r = requests.get(f'https://api.github.com/repos/{entry["owner"]}/{entry["repo"]}/releases',
+                     auth=('user', secrets.ACCESS_TOKEN))
     r = r.json()
 
     metadata = dict()
@@ -108,12 +116,35 @@ for entry in to_process:
             metadata["tag_name"] = release["tag_name"]
             metadata["published_at"] = release["published_at"]
             metadata["release_id"] = release["id"]
-            # the api url is also available
             metadata["release_link"] = release["html_url"]
             metadata["release_description"] = release["body"]
 
     repo_name = entry["owner"] + '/' + entry["repo"]
     data[repo_name]["releases"][entry["release"]] = metadata
 
-with open('./test.json', 'w') as file:
+with open('./data.json', 'w') as file:
     file.write(json.dumps(data))
+
+"""
+RETRIEVING SCANTIST SCA DATA
+link to the scantist SCA app : https://scantist.atlassian.net/wiki/spaces/SD/overview?homepageId=227934346
+link to the scantist SCA docs: https://scantist.atlassian.net/wiki/spaces/SD/overview?homepageId=227934346
+"""
+
+"""
+RETRIEVING SCANTIST ARCHTIMIZE DATA
+"""
+
+"""
+PUSHING DATA TO THE DATABASE
+"""
+client = MongoClient(secrets.CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+db = client['test_db']
+repo_collection = db['repositories']
+
+for repo in tqdm(data.keys(), desc="pushing the data to mongoDB"):
+    search_dict = {
+        "name": data[repo]['name'],
+        "owner": data[repo]['owner']
+    }
+    repo_collection.update_one(search_dict, {'$set': data[repo]}, upsert=True)
