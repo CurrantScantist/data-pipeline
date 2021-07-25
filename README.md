@@ -11,8 +11,18 @@ python install -r requirements.txt
 ```
 
 ## Usage
-To open the dagit web server run the following command:
+
+### pipeline.py
+To open the dagit web server run the following command in terminal:
 ```
 dagit -f pipeline.py
 ```
 A new web page should open with the dagit UI.
+
+### pipeline_draft.py
+This file contains the basic functionality of the data pipeline without typechecking, logs, UI, etc.
+To run the pipeline_draft.py file, simply run it like any regular python file using either the terminal
+or an IDE.
+```
+python pipeline_draft.py
+```
