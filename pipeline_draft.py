@@ -12,6 +12,23 @@ from tqdm import tqdm
 
 import secrets
 
+
+"""
+TODO:
+- change folder structure looping to just use a repository name
+- retrieve all releases for a repository (using pagination)
+- subprocess commands for cloning the repository
+- subprocess commands for checking out each release
+- subprocess commands for using cloc for each release
+- pushing the data to mongoDB
+- validating the repository name on input
+- accepting command line arguments
+- nicer printing in the console
+- function/classes where applicable
+
+"""
+
+
 """
 LOOPING THROUGH DATA FOLDER TO GET REPOSITORY NAMES
 
