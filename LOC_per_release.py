@@ -3,10 +3,12 @@ import os
 import re
 import subprocess
 from operator import itemgetter
+import ssl
 
 import git
 import requests
 from tqdm.auto import tqdm
+from pymongo import MongoClient
 
 import secrets
 
@@ -79,8 +81,35 @@ def clean_up_repo(repo_name):
         git.rmtree(os.path.join(REPOS_DIR, repo_name))
 
 
-def process_repository(repo_str):
+def push_to_mongodb(repo_owner, repo_name, release, release_data):
+    """
+    Pushes a single release to the 'releases' collection on mongoDB. This will use the update function and will upsert
+    the data if it is not found in the collection
+    :param repo_owner: the owner of the repository. Eg, 'facebook'
+    :param repo_name: the name of the repository. Eg, 'react'
+    :param release: the release object returned from the github REST API
+    :param release_data: the data to be stored for the release
+    :return: None
+    """
+    client = MongoClient(secrets.CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+    db = client['test_db']
+    release_collection = db['releases']
+    release_tag = release["tag_name"]
+    search_dict = {
+        "name": repo_name,
+        "owner": repo_owner,
+        "release": {"tag_name": release_tag}
+    }
+    data_to_insert = {
+        "name": repo_name,
+        "owner": repo_owner,
+        "release": release,
+        "LOC": release_data,
+    }
+    release_collection.update_one(search_dict, {'$set': data_to_insert}, upsert=True)
 
+
+def process_repository(repo_str):
     if not is_valid_repo_name(repo_str):
         tqdm.write("Invalid repository!")
         return
@@ -99,7 +128,7 @@ def process_repository(repo_str):
     assert len(releases) > 0, "There must be at least one release"
 
     # sorting the releases for slightly better efficiency
-    releases = sorted(releases, key=itemgetter('tag_name'))
+    releases = sorted(releases, key=itemgetter('tag_name'), reverse=True)
 
     release_loop = tqdm(releases, desc="calculating LOC for each release")
 
@@ -123,14 +152,15 @@ def process_repository(repo_str):
             raise SystemError(p3.stderr)
         release_data = json.loads(p3.stdout)
         header_data = release_data.pop('header')
-        data[tag] = release_data
 
-    with open(os.path.join(CURRENT_DIR, f'loc_for_{repo_owner}/{repo_name}.json'), 'w') as file:
-        file.write(json.dumps(data))
+        tqdm.write("pushing to mongodb...")
+        push_to_mongodb(repo_owner, repo_name, release, release_data)
+        # data[tag] = release_data
 
     tqdm.write("deleting local repository...")
     clean_up_repo(repo_name)
 
 
 if __name__ == '__main__':
-    process_repository("facebook/react")
+    repo_input = input("Please enter a repository (eg, 'facebook/react'): ")
+    process_repository(repo_input)

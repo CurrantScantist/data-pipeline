@@ -133,3 +133,6 @@ dmypy.json
 
 # secrets file containing database connection string
 secrets.py
+
+# tmp folder containing temporary repositories
+./tmp
