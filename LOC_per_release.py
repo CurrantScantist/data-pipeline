@@ -2,9 +2,11 @@ import json
 import os
 import re
 import subprocess
+from operator import itemgetter
 
+import git
 import requests
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 import secrets
 
@@ -80,31 +82,40 @@ def clean_up_repo(repo_name):
 def process_repository(repo_str):
 
     if not is_valid_repo_name(repo_str):
-        print("Invalid repository!")
+        tqdm.write("Invalid repository!")
         return
 
     repo_owner, repo_name = repo_str.split("/")
 
     # check if repository is already there
     if check_repo(repo_name):
-        print("using cached repository")
+        tqdm.write("using cached repository")
         pass
     else:
-        print("cloning repository...")
+        tqdm.write("cloning repository...")
         clone_repo(repo_owner, repo_name)
 
     releases = get_releases(repo_owner, repo_name)
     assert len(releases) > 0, "There must be at least one release"
 
-    for release in tqdm(releases, desc="calculating LOC for each release"):
+    # sorting the releases for slightly better efficiency
+    releases = sorted(releases, key=itemgetter('tag_name'))
+
+    release_loop = tqdm(releases, desc="calculating LOC for each release")
+
+    for release in release_loop:
         tag = release["tag_name"]
-        print(f"checking out tag: {tag}")
+
+        release_loop.set_description(f"processing release: {tag}")
+        release_loop.refresh()
+
+        tqdm.write(f"checking out tag: {tag}")
         p2 = subprocess.run(f"git checkout {tag}", cwd=f"{REPOS_DIR}/{repo_name}", capture_output=True)
         if p2.returncode == 0:
             pass
         else:
             raise SystemError(p2.stderr)
-        print(f"count LOC for tag: {tag}")
+        tqdm.write(f"counting LOC for tag: {tag}")
         p3 = subprocess.run(f"cloc . --vcs=git --json", cwd=f"{REPOS_DIR}/{repo_name}", capture_output=True)
         if p3.returncode == 0:
             pass
@@ -117,7 +128,7 @@ def process_repository(repo_str):
     with open(os.path.join(CURRENT_DIR, f'loc_for_{repo_owner}/{repo_name}.json'), 'w') as file:
         file.write(json.dumps(data))
 
-    print("deleting local repository...")
+    tqdm.write("deleting local repository...")
     clean_up_repo(repo_name)
 
 
