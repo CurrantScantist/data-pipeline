@@ -3,6 +3,7 @@ import json
 import requests
 from tqdm import tqdm
 import os
+import re
 
 import secrets
 
@@ -31,6 +32,16 @@ def check_repo(repo_name):
         if os.path.isdir(f"{BASE_DIR}/{repo_name}"):
             return True
     return False
+
+
+def is_valid_repo_name(name):
+    """
+    Function for checking repository url string is valid
+    :param name: repository name, containing the owner and repo separated by a /. eg. 'facebook/react'
+    :return: True if valid, False otherwise
+    """
+    repo_url_pattern = r"[a-zA-Z0-9\-\_\.]+/[a-zA-Z0-9\-\_\.]+"
+    return bool(re.fullmatch(repo_url_pattern, name))
 
 
 def clone_repo(repo_name, repo_owner):
@@ -76,4 +87,4 @@ def process_repository(repo_name, repo_owner):
         file.write(json.dumps(data))
 
 
-process_repository(repo_name, repo_owner)
+# process_repository(repo_name, repo_owner)
