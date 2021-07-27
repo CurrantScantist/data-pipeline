@@ -1,23 +1,23 @@
-import subprocess
 import json
-import requests
-from tqdm import tqdm
 import os
 import re
+import subprocess
+
+import requests
+from tqdm import tqdm
 
 import secrets
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPOS_DIR = os.path.join(CURRENT_DIR, "repositories")
+REPOS_DIR = os.path.join(CURRENT_DIR, "tmp")
 
-repo_name = "react"
-repo_owner = "facebook"
+if not os.path.exists(REPOS_DIR):
+    os.mkdir(REPOS_DIR)
+
 data = {}
 
-# releases = ["v17.0.2", "v17.0.1", "v17.0.0"]
 
-
-def get_releases():
+def get_releases(repo_owner, repo_name):
     """
     Retrieves a list of releases for a github repository
     :return: an array of release objects returned by the github REST API
@@ -44,17 +44,17 @@ def check_repo(repo_name):
     return False
 
 
-def is_valid_repo_name(name):
+def is_valid_repo_name(repo_str):
     """
     Checks if a repository url string is valid
-    :param name: repository name, containing the owner and repo separated by a /. eg. 'facebook/react'
+    :param repo_str: repository name, containing the owner and repo separated by a /. eg. 'facebook/react'
     :return: True if valid, False otherwise
     """
     repo_url_pattern = r"[a-zA-Z0-9\-\_\.]+/[a-zA-Z0-9\-\_\.]+"
-    return bool(re.fullmatch(repo_url_pattern, name))
+    return bool(re.fullmatch(repo_url_pattern, repo_str))
 
 
-def clone_repo(repo_name, repo_owner):
+def clone_repo(repo_owner, repo_name):
     """
     Clones a github repository locally
     :param repo_name: the name of the repository. Eg, 'react'
@@ -73,31 +73,27 @@ def clean_up_repo(repo_name):
     :param repo_name: the name of the repository. Eg, 'react'
     :return: None
     """
-    if not check_repo(repo_name):
+    if check_repo(repo_name):
+        git.rmtree(os.path.join(REPOS_DIR, repo_name))
+
+
+def process_repository(repo_str):
+
+    if not is_valid_repo_name(repo_str):
+        print("Invalid repository!")
         return
 
-    # TODO: fix all the errors with access denied on windows
+    repo_owner, repo_name = repo_str.split("/")
 
-    # p1 = subprocess.run(f"rmdir {os.path.join(REPOS_DIR, repo_name)} /q /s", capture_output=True, text=True,
-    #                     cwd=REPOS_DIR)
-    # if p1.returncode != 0:
-    #     raise SystemError(p1.stderr)
-
-    # os.rename(os.path.join(REPOS_DIR, repo_name), os.path.join(REPOS_DIR, 'to_delete'))
-    # shutil.rmtree(os.path.join(REPOS_DIR, 'to_delete'))
-    return
-
-
-def process_repository(repo_name, repo_owner):
     # check if repository is already there
     if check_repo(repo_name):
         print("using cached repository")
         pass
     else:
         print("cloning repository...")
-        clone_repo(repo_name, repo_owner)
+        clone_repo(repo_owner, repo_name)
 
-    releases = get_releases()
+    releases = get_releases(repo_owner, repo_name)
     assert len(releases) > 0, "There must be at least one release"
 
     for release in tqdm(releases, desc="calculating LOC for each release"):
@@ -121,6 +117,9 @@ def process_repository(repo_name, repo_owner):
     with open(os.path.join(CURRENT_DIR, f'loc_for_{repo_owner}/{repo_name}.json'), 'w') as file:
         file.write(json.dumps(data))
 
+    print("deleting local repository...")
+    clean_up_repo(repo_name)
+
 
 if __name__ == '__main__':
-    process_repository(repo_name, repo_owner)
+    process_repository("facebook/react")
