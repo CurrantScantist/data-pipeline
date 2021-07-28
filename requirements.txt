@@ -30,7 +30,6 @@ pyreadline==2.1
 python-dateutil==2.8.2
 python-editor==1.0.4
 pytzdata==2020.1
-pywin32==301
 PyYAML==5.4.1
 requests==2.26.0
 Rx==1.6.1
