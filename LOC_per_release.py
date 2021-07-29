@@ -35,7 +35,7 @@ def get_releases(repo_owner, repo_name):
     return releases
 
 
-def check_repo(repo_name):
+def check_local_repo_exists(repo_name):
     """
     Checks if the local repository has already been cloned from github
     :param repo_name: the name of the repository. Eg, 'react'
@@ -46,6 +46,22 @@ def check_repo(repo_name):
         if os.path.isdir(os.path.join(REPOS_DIR, repo_name)):
             return True
     return False
+
+
+def check_remote_repo_exists(repo_owner, repo_name):
+    """
+    Checks if a repository exists on github.com
+    :param repo_name: the name of the repository. Eg, 'react'
+    :param repo_owner: the owner of the repository. Eg, 'facebook'
+    :return: a tuple. first item: boolean of whether the repository exists on github.com, second item: the data object
+    returned from the github API
+    """
+    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', secrets.ACCESS_TOKEN))
+    r = r.json()
+    if 'message' in r.keys():
+        if r['message'] == 'Not Found':
+            return False, r
+    return True, r
 
 
 def is_valid_repo_name(repo_str):
@@ -77,11 +93,11 @@ def clean_up_repo(repo_name):
     :param repo_name: the name of the repository. Eg, 'react'
     :return: None
     """
-    if check_repo(repo_name):
+    if check_local_repo_exists(repo_name):
         git.rmtree(os.path.join(REPOS_DIR, repo_name))
 
 
-def push_to_mongodb(repo_owner, repo_name, release, release_data):
+def push_release_to_mongodb(repo_owner, repo_name, release, release_data):
     """
     Pushes a single release to the 'releases' collection on mongoDB. This will use the update function and will upsert
     the data if it is not found in the collection
@@ -111,13 +127,19 @@ def push_to_mongodb(repo_owner, repo_name, release, release_data):
 
 def process_repository(repo_str):
     if not is_valid_repo_name(repo_str):
-        tqdm.write("Invalid repository!")
+        tqdm.write("Invalid repository name!")
         return
 
     repo_owner, repo_name = repo_str.split("/")
 
+    # check if repository exists on github.com
+    repo_exists, response = check_remote_repo_exists(repo_owner, repo_name)
+    if not repo_exists:
+        tqdm.write(f"Repository: {repo_owner}/{repo_name} could not be found on github.com")
+        return
+
     # check if repository is already there
-    if check_repo(repo_name):
+    if check_local_repo_exists(repo_name):
         tqdm.write("using cached repository")
         pass
     else:
@@ -154,7 +176,7 @@ def process_repository(repo_str):
         header_data = release_data.pop('header')
 
         tqdm.write("pushing to mongodb...")
-        push_to_mongodb(repo_owner, repo_name, release, release_data)
+        push_release_to_mongodb(repo_owner, repo_name, release, release_data)
         # data[tag] = release_data
 
     tqdm.write("deleting local repository...")
