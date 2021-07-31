@@ -39,7 +39,7 @@ def check_local_repo_exists(repo_name):
     """
     Checks if the local repository has already been cloned from github
     :param repo_name: the name of the repository. Eg, 'react'
-    :return:
+    :return: True if it exists, False otherwise
     """
     # TODO: check the directory is not empty and is a git repository
     if os.path.exists(os.path.join(REPOS_DIR, repo_name)):

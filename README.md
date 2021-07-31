@@ -35,7 +35,7 @@ calculates statistics about the LOC of a github repository. It calculates statis
 from the github REST API for a particular repository and it pushes the data to the 'releases' collection on mongodb.
 
 **Note:** In order for the LOC statistics to be calculated you must have 'cloc' installed on your system and it must
-be accessible from the terminal by running the ```cloc``` command.
+be accessible from the terminal by running the ```cloc``` command. The tool can be found here https://github.com/AlDanial/cloc
 
 Open the CLI for this pipeline by running it from the terminal
 ```shell
