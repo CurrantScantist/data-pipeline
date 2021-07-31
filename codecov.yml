@@ -3,5 +3,5 @@ codecov:
 comment:
   behaviour: default
   require_changes: false
-  require_head: no     # default yes
-  require_base: no     # default yes
+  require_head: false     # default yes
+  require_base: false     # default yes
