@@ -59,7 +59,7 @@ def check_remote_repo_exists(repo_owner, repo_name):
     r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', secrets.ACCESS_TOKEN))
     r = r.json()
     if 'message' in r.keys():
-        if r['message'] == 'Not Found':
+        if r['message'].lower() == 'not found':
             return False, r
     return True, r
 
@@ -97,17 +97,17 @@ def clean_up_repo(repo_name):
         git.rmtree(os.path.join(REPOS_DIR, repo_name))
 
 
-def push_release_to_mongodb(repo_owner, repo_name, release, release_data):
+def push_release_to_mongodb(repo_owner, repo_name, release, release_data, client):
     """
     Pushes a single release to the 'releases' collection on mongoDB. This will use the update function and will upsert
     the data if it is not found in the collection
+    :param client: the MongoDB client
     :param repo_owner: the owner of the repository. Eg, 'facebook'
     :param repo_name: the name of the repository. Eg, 'react'
     :param release: the release object returned from the github REST API
     :param release_data: the data to be stored for the release
     :return: None
     """
-    client = MongoClient(secrets.CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
     db = client['test_db']
     release_collection = db['releases']
     release_tag = release["tag_name"]
@@ -125,7 +125,29 @@ def push_release_to_mongodb(repo_owner, repo_name, release, release_data):
     release_collection.update_one(search_dict, {'$set': data_to_insert}, upsert=True)
 
 
+# def push_repository_to_mongodb(repo_owner, repo_name, repository, client):
+#     db = client['test_db']
+#     repo_collection = db['repositories']
+#
+#     search_dict = {
+#         "name": repo_name,
+#         "owner": repo_owner
+#     }
+#     repo_collection.update_one(search_dict, {'$set': repository}, upsert=True)
+
+
 def process_repository(repo_str):
+    """
+    Processes the repository by doing the following:
+        - validate the repository input
+        - clone the repository (if not currently in the 'tmp' folder
+        - retrieve a list of tags/releases for the repository
+        - iterate through the tags/releases
+        - calculate the LOC data for each tag/release by using a command line tool called 'cloc'
+        - push the data to mongodb
+    :param repo_str: concatenation of the repository owner and name separated by a '/'. Eg, 'facebook/react'
+    :return: None
+    """
     if not is_valid_repo_name(repo_str):
         tqdm.write("Invalid repository name!")
         return
@@ -148,12 +170,15 @@ def process_repository(repo_str):
 
     releases = get_releases(repo_owner, repo_name)
     assert len(releases) > 0, "There must be at least one release"
+    tqdm.write(f"There were {len(releases)} releases found on github")
 
     # sorting the releases for slightly better efficiency
     releases = sorted(releases, key=itemgetter('tag_name'), reverse=True)
 
-    release_loop = tqdm(releases, desc="calculating LOC for each release")
+    # get the mongoDB client
+    mongo_client = MongoClient(secrets.CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
 
+    release_loop = tqdm(releases, desc="calculating LOC for each release")
     for release in release_loop:
         tag = release["tag_name"]
 
@@ -176,7 +201,7 @@ def process_repository(repo_str):
         header_data = release_data.pop('header')
 
         tqdm.write("pushing to mongodb...")
-        push_release_to_mongodb(repo_owner, repo_name, release, release_data)
+        push_release_to_mongodb(repo_owner, repo_name, release, release_data, mongo_client)
         # data[tag] = release_data
 
     tqdm.write("deleting local repository...")
