@@ -19,8 +19,6 @@ REPOS_DIR = os.path.join(CURRENT_DIR, "tmp")
 if not os.path.exists(REPOS_DIR):
     os.mkdir(REPOS_DIR)
 
-data = {}
-
 
 class Progress(git.RemoteProgress):
     def update(self, op_code, cur_count, max_count=None, message=''):
@@ -133,15 +131,66 @@ def push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, client):
     release_collection.update_one(search_dict, {'$set': data_to_insert}, upsert=True)
 
 
-# def push_repository_to_mongodb(repo_owner, repo_name, repository, client):
-#     db = client['test_db']
-#     repo_collection = db['repositories']
-#
-#     search_dict = {
-#         "name": repo_name,
-#         "owner": repo_owner
-#     }
-#     repo_collection.update_one(search_dict, {'$set': repository}, upsert=True)
+def get_repository_metadata(repo_owner, repo_name):
+    """
+    Retrieves repository metadata from the Github REST API. Data includes general metadata, repository language stats,
+    and repository topics (if available).
+    :param repo_owner: the owner of the repository. Eg, 'facebook'
+    :param repo_name: the name of the repository. Eg, 'react'
+    :return: a dictionary containing the available data that could be retrieved
+    """
+    data = {}
+
+    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', secrets.ACCESS_TOKEN))
+    r = r.json()
+
+    data["name"] = repo_name
+    data["owner"] = repo_owner
+
+    keys = ["description", "forks", "forks_count", "language", "stargazers_count", "watchers_count", "watchers", "size",
+            "default_branch", "open_issues_count", "open_issues",
+            "topics", "has_issues", "archived", "disabled", "visibility", "pushed_at", "created_at", "updated_at"]
+    for key in keys:
+        try:
+            data[key] = r[key]
+        except KeyError:
+            pass
+
+    # get the repository languages
+    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/languages", auth=('user', secrets.ACCESS_TOKEN))
+    data["languages"] = r.json()
+
+    # get the topics for the repository
+    headers_for_topics = {
+        'Accept': 'application/vnd.github.mercy-preview+json'
+    }
+    try:
+        r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/topics", headers=headers_for_topics,
+                         auth=('user', secrets.ACCESS_TOKEN))
+        data["topics"] = r.json()["names"]
+    except Exception:
+        tqdm.write(f"could not retrieve topics for {repo_owner}/{repo_name}")
+
+    return data
+
+
+def push_repository_to_mongodb(repo_owner, repo_name, data, client):
+    """
+    Pushes the repository metadata to the mongoDB database
+    :param repo_owner: the owner of the repository. Eg, 'facebook'
+    :param repo_name: the name of the repository. Eg, 'react'
+    :param data: the metadata for the repository (python dictionary)
+    :param client: the MongoDB client
+    :return: None
+    """
+    db = client['test_db']
+    repo_collection = db['repositories']
+
+    search_dict = {
+        "name": repo_name,
+        "owner": repo_owner
+    }
+    repo_collection.update_one(search_dict, {'$set': data}, upsert=True)
 
 
 def process_repository(repo_str):
@@ -185,6 +234,19 @@ def process_repository(repo_str):
 
     # get the mongoDB client
     mongo_client = MongoClient(secrets.CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+
+    # get the repository metadata
+    tqdm.write("Retrieving repository metadata from the Github REST API")
+    data = get_repository_metadata(repo_owner, repo_name)
+    data["num_tags"] = len(tags)
+    if len(tags) > 0:
+        data["latest_tag"] = tags[-1].name
+    else:
+        data["latest_tag"] = None
+
+    # push the repository data to mongoDB
+    tqdm.write("Pushing repository data to mongoDB")
+    push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
 
     g = git.Git(repo_path)  # initialise git in order to checkout each tag
     tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
