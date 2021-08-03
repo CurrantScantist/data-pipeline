@@ -4,6 +4,7 @@ import re
 import subprocess
 from operator import itemgetter
 import ssl
+import time
 
 import git
 import requests
@@ -19,6 +20,11 @@ if not os.path.exists(REPOS_DIR):
     os.mkdir(REPOS_DIR)
 
 data = {}
+
+
+class Progress(git.RemoteProgress):
+    def update(self, op_code, cur_count, max_count=None, message=''):
+        tqdm.write(self._cur_line)
 
 
 def get_releases(repo_owner, repo_name):
@@ -74,17 +80,19 @@ def is_valid_repo_name(repo_str):
     return bool(re.fullmatch(repo_url_pattern, repo_str))
 
 
-def clone_repo(repo_owner, repo_name):
+def clone_repo(repo_owner, repo_name, print_progress=True):
     """
     Clones a github repository locally
+    :param print_progress: True for printing cloning progress to the console, False for no printing
     :param repo_name: the name of the repository. Eg, 'react'
     :param repo_owner: the owner of the repository. Eg, 'facebook'
-    :return: None
+    :return: repo: the Repo type from gitPython
     """
-    p1 = subprocess.run(f"git clone https://github.com/{repo_owner}/{repo_name}.git", capture_output=True, text=True,
-                        cwd=REPOS_DIR)
-    if p1.returncode != 0:
-        raise SystemError(p1.stderr)
+    remote_url = url = f"https://github.com/{repo_owner}/{repo_name}.git"
+    repo_path = os.path.join(REPOS_DIR, repo_name)
+    repo = git.Repo.clone_from(remote_url, repo_path, progress=Progress() if print_progress else None)
+
+    return repo
 
 
 def clean_up_repo(repo_name):
@@ -97,30 +105,30 @@ def clean_up_repo(repo_name):
         git.rmtree(os.path.join(REPOS_DIR, repo_name))
 
 
-def push_release_to_mongodb(repo_owner, repo_name, release, release_data, client):
+def push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, client):
     """
     Pushes a single release to the 'releases' collection on mongoDB. This will use the update function and will upsert
     the data if it is not found in the collection
     :param client: the MongoDB client
     :param repo_owner: the owner of the repository. Eg, 'facebook'
     :param repo_name: the name of the repository. Eg, 'react'
-    :param release: the release object returned from the github REST API
-    :param release_data: the data to be stored for the release
+    :param tag: the gitPython 'Tag' type
+    :param tag_data: the data to be stored for the tag
     :return: None
     """
     db = client['test_db']
     release_collection = db['releases']
-    release_tag = release["tag_name"]
     search_dict = {
         "name": repo_name,
         "owner": repo_owner,
-        "release": {"tag_name": release_tag}
+        "tag_name": tag.name
     }
     data_to_insert = {
         "name": repo_name,
         "owner": repo_owner,
-        "release": release,
-        "LOC": release_data,
+        "tag_name": tag.name,
+        "committed_date": tag.commit.committed_datetime,
+        "LOC": tag_data,
     }
     release_collection.update_one(search_dict, {'$set': data_to_insert}, upsert=True)
 
@@ -160,51 +168,50 @@ def process_repository(repo_str):
         tqdm.write(f"Repository: {repo_owner}/{repo_name} could not be found on github.com")
         return
 
-    # check if repository is already there
+    repo_path = os.path.join(REPOS_DIR, repo_name)
+
+    # check if repository is already cloned locally
     if check_local_repo_exists(repo_name):
         tqdm.write("using cached repository")
-        pass
+        repo = git.Repo(repo_path)
     else:
         tqdm.write("cloning repository...")
-        clone_repo(repo_owner, repo_name)
+        repo = clone_repo(repo_owner, repo_name)
 
-    releases = get_releases(repo_owner, repo_name)
-    assert len(releases) > 0, "There must be at least one release"
-    tqdm.write(f"There were {len(releases)} releases found on github")
+    # get the tags from the repository
+    tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
 
-    # sorting the releases for slightly better efficiency
-    releases = sorted(releases, key=itemgetter('tag_name'), reverse=True)
+    tqdm.write(f"There were {len(tags)} tags found in the repository")
 
     # get the mongoDB client
     mongo_client = MongoClient(secrets.CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
 
-    release_loop = tqdm(releases, desc="calculating LOC for each release")
-    for release in release_loop:
-        tag = release["tag_name"]
+    g = git.Git(repo_path)  # initialise git in order to checkout each tag
+    tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
 
-        release_loop.set_description(f"processing release: {tag}")
-        release_loop.refresh()
+    for tag in tag_loop:
+        tag_name = tag.name
+        tag_loop.set_description(f"processing tag: {tag}")
+        tag_loop.refresh()
 
         tqdm.write(f"checking out tag: {tag}")
-        p2 = subprocess.run(f"git checkout {tag}", cwd=f"{REPOS_DIR}/{repo_name}", capture_output=True)
-        if p2.returncode == 0:
-            pass
-        else:
-            raise SystemError(p2.stderr)
+        g.checkout(tag_name)
+
         tqdm.write(f"counting LOC for tag: {tag}")
+        # calling the 'cloc' command line tool to count LOC statistics for the repository
         p3 = subprocess.run(f"cloc . --vcs=git --json", cwd=f"{REPOS_DIR}/{repo_name}", capture_output=True)
-        if p3.returncode == 0:
-            pass
-        else:
+        if p3.returncode != 0:
             raise SystemError(p3.stderr)
-        release_data = json.loads(p3.stdout)
-        header_data = release_data.pop('header')
+
+        tag_data = json.loads(p3.stdout)
+        header_data = tag_data.pop('header')  # this data can possibly be used later on
 
         tqdm.write("pushing to mongodb...")
-        push_release_to_mongodb(repo_owner, repo_name, release, release_data, mongo_client)
-        # data[tag] = release_data
+        push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
 
     tqdm.write("deleting local repository...")
+
+    time.sleep(2)  # to wait for the previous git related processes to release the repository
     clean_up_repo(repo_name)
 
 
