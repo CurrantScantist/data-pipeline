@@ -1,9 +1,18 @@
 codecov:
   token: 74221eff-6521-4da4-8a20-81b2814c213c
 comment:
+  layout: "diff, flags, files"
   behaviour: default
   require_changes: false
   require_head: false     # default yes
   require_base: false     # default yes
 ignore:
   - "src/tests/*”
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
