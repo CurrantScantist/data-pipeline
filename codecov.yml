@@ -10,5 +10,7 @@ ignore:
   - "src/tests/*”
 coverage:
   status:
+    default_rules:
+      flag_coverage_not_uploaded_behavior: exclude
     project: off
     patch: off
