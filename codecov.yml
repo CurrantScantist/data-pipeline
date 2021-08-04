@@ -10,4 +10,5 @@ ignore:
   - "src/tests/*”
 coverage:
   status:
+    project: false
     patch: false
