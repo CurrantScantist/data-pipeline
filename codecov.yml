@@ -3,14 +3,14 @@ codecov:
 comment:
   layout: "reach, diff, flags, files"
   behaviour: default
-  require_changes: false
-  require_head: false     # default yes
-  require_base: false     # default yes
+  require_changes: no
+  require_head: no     # default yes
+  require_base: no     # default yes
 ignore:
   - "src/tests/*”
 coverage:
   status:
     default_rules:
       flag_coverage_not_uploaded_behavior: exclude
-    project: false
-    patch: false
+    project: off
+    patch: off
