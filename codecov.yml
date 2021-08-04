@@ -5,3 +5,5 @@ comment:
   require_changes: false
   require_head: false     # default yes
   require_base: false     # default yes
+ignore:
+  - "src/tests/*”
