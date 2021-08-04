@@ -2,7 +2,6 @@ import json
 import os
 import re
 import subprocess
-from operator import itemgetter
 import ssl
 import time
 
@@ -276,8 +275,3 @@ def process_repository(repo_str):
     repo.close()
     time.sleep(2)  # to wait for the previous git related processes to release the repository
     clean_up_repo(repo_name)
-
-
-if __name__ == '__main__':
-    repo_input = input("Please enter a repository (eg, 'facebook/react'): ")
-    process_repository(repo_input)

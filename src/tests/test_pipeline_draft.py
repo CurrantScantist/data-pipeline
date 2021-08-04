@@ -1,5 +1,6 @@
 import unittest
-import LOC_per_release
+from src.pipeline import LOC_per_release
+
 
 class TestPipeline(unittest.TestCase):
     def setUp(self) -> None:

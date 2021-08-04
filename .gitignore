@@ -132,7 +132,7 @@ dmypy.json
 .vscode
 
 # secrets file containing database connection string
-secrets.py
+src/secrets.py
 
 # tmp folder containing temporary repositories
-./tmp
+./src/pipeline/tmp

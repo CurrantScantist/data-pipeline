@@ -10,8 +10,7 @@ import requests
 from pymongo import MongoClient
 from tqdm import tqdm
 
-import secrets
-
+from src import secrets
 
 """
 TODO:

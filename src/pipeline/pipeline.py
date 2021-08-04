@@ -39,7 +39,7 @@ from dagster_types import Repository, Metadata
 @solid(output_defs=[DynamicOutputDefinition(dagster_type=Repository)])
 def get_repos(context):
     # path = context.solid_config["path"]
-    dirname, _, filenames = next(os.walk("./"))
+    dirname, _, filenames = next(os.walk("../../"))
     for file in filenames:
         yield DynamicOutput(
             value=os.path.join(dirname, file),
