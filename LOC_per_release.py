@@ -273,6 +273,7 @@ def process_repository(repo_str):
 
     tqdm.write("deleting local repository...")
 
+    repo.close()
     time.sleep(2)  # to wait for the previous git related processes to release the repository
     clean_up_repo(repo_name)
 
