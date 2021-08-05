@@ -1,4 +1,4 @@
-# data-pipeline &middot; [![codecov](https://codecov.io/gh/CurrantScantist/data-pipeline/branch/main/graph/badge.svg?token=MA5TKV9W4A)](https://codecov.io/gh/CurrantScantist/data-pipeline)
+# data-pipeline &middot; [![codecov](https://codecov.io/gh/CurrantScantist/data-pipeline/branch/main/graph/badge.svg?token=MA5TKV9W4A)](https://codecov.io/gh/CurrantScantist/data-pipeline) [![CodeFactor](https://www.codefactor.io/repository/github/currantscantist/data-pipeline/badge?s=82506a57146579e1e65876e36dee944c5b8649ff)](https://www.codefactor.io/repository/github/currantscantist/data-pipeline)
 Data pipeline for the FIT4002 Full-Year-Project completed by Team 02 for Scantist.
 This repository contains the data pipeline responsible for populating the database. It combines data from the scantist tools (Scantist SCA, Archtimize, and APIFuzzer) and data retrieved from the github API and stackshare API. The pipeline is built with the dagster framework (https://dagster.io/), their documentation can be found at https://docs.dagster.io/getting-started
 
@@ -7,7 +7,7 @@ This repository contains the data pipeline responsible for populating the databa
 First make sure you have a virtual environment setup and activated.
 Then run the following command:
 ```
-python install -r requirements.txt
+pip install -r requirements.txt
 ```
 Also you will need to create a file named **secrets.py** which contains the necessary
 access tokens for the database and APIs.
