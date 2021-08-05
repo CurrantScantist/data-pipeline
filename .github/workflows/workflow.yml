@@ -20,6 +20,12 @@ jobs:
     - name: 'Generate report'
       run: |
         pytest --cov=./src/
+        coverage html
+    - name: Archive code coverage html report
+      uses: actions/upload-artifact@v2
+      with:
+        name: code-coverage-report
+        path: htmlcov
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
