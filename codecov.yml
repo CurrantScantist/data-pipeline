@@ -1,5 +1,3 @@
-codecov:
-  token: ${{ secrets.CODECOV_TOKEN }}
 comment:
   layout: "reach, diff, flags, files"
   behaviour: default
