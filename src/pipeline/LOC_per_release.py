@@ -10,7 +10,7 @@ import requests
 from tqdm.auto import tqdm
 from pymongo import MongoClient
 
-import secrets
+import src.secrets as secrets
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPOS_DIR = os.path.join(CURRENT_DIR, "tmp")
