@@ -1,16 +1,16 @@
 codecov:
-  token: 74221eff-6521-4da4-8a20-81b2814c213c
+  token: ${{ secrets.CODECOV_TOKEN }}
 comment:
   layout: "reach, diff, flags, files"
   behaviour: default
-  require_changes: no
-  require_head: no     # default yes
-  require_base: no     # default yes
+  require_changes: false
+  require_head: false    # default yes
+  require_base: false     # default yes
 ignore:
   - "src/tests/*”
 coverage:
   status:
     default_rules:
       flag_coverage_not_uploaded_behavior: exclude
-    project: off
-    patch: off
+    project: false
+    patch: false
