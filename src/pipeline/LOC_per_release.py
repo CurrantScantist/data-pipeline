@@ -10,7 +10,7 @@ import requests
 from tqdm.auto import tqdm
 from pymongo import MongoClient
 
-import src.secrets as secrets
+from ..secrets import *
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPOS_DIR = os.path.join(CURRENT_DIR, "tmp")
@@ -30,10 +30,10 @@ def get_releases(repo_owner, repo_name):
     :return: an array of release objects returned by the github REST API
     """
     url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/releases?per_page=100&page=1"
-    res = requests.get(url, auth=("user", secrets.ACCESS_TOKEN))
+    res = requests.get(url, auth=("user", ACCESS_TOKEN))
     releases = res.json()
     while 'next' in res.links.keys():
-        res = requests.get(res.links['next']['url'], auth=("user", secrets.ACCESS_TOKEN))
+        res = requests.get(res.links['next']['url'], auth=("user", ACCESS_TOKEN))
         releases.extend(res.json())
     return releases
 
@@ -59,7 +59,7 @@ def check_remote_repo_exists(repo_owner, repo_name):
     :return: a tuple. first item: boolean of whether the repository exists on github.com, second item: the data object
     returned from the github API
     """
-    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', secrets.ACCESS_TOKEN))
+    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', ACCESS_TOKEN))
     r = r.json()
     if 'message' in r.keys():
         if r['message'].lower() == 'not found':
@@ -140,7 +140,7 @@ def get_repository_metadata(repo_owner, repo_name):
     """
     data = {}
 
-    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', secrets.ACCESS_TOKEN))
+    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', ACCESS_TOKEN))
     r = r.json()
 
     data["name"] = repo_name
@@ -156,7 +156,7 @@ def get_repository_metadata(repo_owner, repo_name):
             pass
 
     # get the repository languages
-    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/languages", auth=('user', secrets.ACCESS_TOKEN))
+    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/languages", auth=('user', ACCESS_TOKEN))
     data["languages"] = r.json()
 
     # get the topics for the repository
@@ -165,7 +165,7 @@ def get_repository_metadata(repo_owner, repo_name):
     }
     try:
         r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/topics", headers=headers_for_topics,
-                         auth=('user', secrets.ACCESS_TOKEN))
+                         auth=('user', ACCESS_TOKEN))
         data["topics"] = r.json()["names"]
     except Exception:
         tqdm.write(f"could not retrieve topics for {repo_owner}/{repo_name}")
@@ -232,7 +232,7 @@ def process_repository(repo_str):
     tqdm.write(f"There were {len(tags)} tags found in the repository")
 
     # get the mongoDB client
-    mongo_client = MongoClient(secrets.CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+    mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
 
     # get the repository metadata
     tqdm.write("Retrieving repository metadata from the Github REST API")
