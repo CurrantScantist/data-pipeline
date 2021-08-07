@@ -22,22 +22,3 @@ def test_get_releases(requests_mock):
     requests_mock.get(f"https://api.github.com/repos/{owner}/{name}/releases?per_page=100&page=1", json=[])
     resp = pipeline.get_releases(owner, name)
     assert resp == []
-
-
-
-
-"""
-r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', secrets.ACCESS_TOKEN))
-r = r.json()
-
-r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/languages", auth=('user', secrets.ACCESS_TOKEN))
-data["languages"] = r.json()
-
-headers_for_topics = {
-    'Accept': 'application/vnd.github.mercy-preview+json'
-}
-try:
-    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/topics", headers=headers_for_topics,
-                     auth=('user', secrets.ACCESS_TOKEN))
-    data["topics"] = r.json()["names"]
-"""

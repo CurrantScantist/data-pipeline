@@ -33,7 +33,7 @@ class RemoteRepoNotFoundError(Exception):
     """
     def __init__(self, message):
         self.message = message
-        super.__init__(message)
+        super().__init__(message)
 
 
 def get_releases(repo_owner, repo_name):
@@ -102,7 +102,7 @@ def clone_repo(repo_owner, repo_name, print_progress=True):
     :param repo_owner: the owner of the repository. Eg, 'facebook'
     :return: repo: the Repo type from gitPython
     """
-    remote_url = url = f"https://github.com/{repo_owner}/{repo_name}.git"
+    remote_url = f"https://github.com/{repo_owner}/{repo_name}.git"
     repo_path = os.path.join(REPOS_DIR, repo_name)
     repo = git.Repo.clone_from(remote_url, repo_path, progress=Progress() if print_progress else None)
 
@@ -190,7 +190,7 @@ def get_repository_metadata(repo_owner, repo_name):
         r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/topics", headers=headers_for_topics,
                          auth=('user', ACCESS_TOKEN))
         data["topics"] = r.json()["names"]
-    except Exception:
+    except KeyError:
         tqdm.write(f"could not retrieve topics for {repo_owner}/{repo_name}")
 
     return data
@@ -255,7 +255,7 @@ def process_repository(repo_str):
     try:
         data = get_repository_metadata(repo_owner, repo_name)
     except RemoteRepoNotFoundError as e:
-        tqdm.write(e)
+        tqdm.write(e.message)
         return
 
     repo_path = os.path.join(REPOS_DIR, repo_name)
