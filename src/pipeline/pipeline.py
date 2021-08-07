@@ -51,10 +51,16 @@ class HTTPError(Exception):
 def get_releases(repo_owner, repo_name):
     """
     Retrieves a list of releases for a github repository
+    :param repo_owner: the owner of the repository. Eg, 'facebook'
+    :param repo_name: the name of the repository. Eg, 'react'
     :return: an array of release objects returned by the github REST API
     """
     url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/releases?per_page=100&page=1"
     res = requests.get(url, auth=("user", ACCESS_TOKEN))
+
+    if res.status_code != 200:
+        raise HTTPError(res.status_code)
+
     releases = res.json()
     while 'next' in res.links.keys():
         res = requests.get(res.links['next']['url'], auth=("user", ACCESS_TOKEN))
