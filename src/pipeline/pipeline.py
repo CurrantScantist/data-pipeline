@@ -181,8 +181,7 @@ def get_repository_metadata(repo_owner, repo_name):
     if response.status_code != 200:
         if response.status_code == 404:
             raise RemoteRepoNotFoundError(f"Repository: {repo_owner}/{repo_name} could not be found on github.com")
-        else:
-            raise HTTPError(response.status_code)
+        raise HTTPError(response.status_code)
 
     data["name"] = repo_name
     data["owner"] = repo_owner
