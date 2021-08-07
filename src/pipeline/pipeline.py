@@ -31,9 +31,21 @@ class RemoteRepoNotFoundError(Exception):
     """
     Custom error for when a remote repository is not found on github.com
     """
+
     def __init__(self, message):
         self.message = message
         super().__init__(message)
+
+
+class HTTPError(Exception):
+    """
+    Custom error for when a request returns an unexpected status code
+    """
+
+    def __init__(self, status_code):
+        self.status_code = status_code
+        self.message = f"Error with status code: {status_code}"
+        super().__init__(self.message)
 
 
 def get_releases(repo_owner, repo_name):
@@ -157,14 +169,14 @@ def get_repository_metadata(repo_owner, repo_name):
     """
     data = {}
 
-    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', ACCESS_TOKEN))
-    r = r.json()
+    response = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', ACCESS_TOKEN))
+    r = response.json()
 
-    # TODO: check status code of request
-
-    if 'message' in r.keys():
-        if r['message'].lower() == 'not found':
+    if response.status_code != 200:
+        if response.status_code == 404:
             raise RemoteRepoNotFoundError(f"Repository: {repo_owner}/{repo_name} could not be found on github.com")
+        else:
+            raise HTTPError(response.status_code)
 
     data["name"] = repo_name
     data["owner"] = repo_owner
@@ -179,20 +191,22 @@ def get_repository_metadata(repo_owner, repo_name):
             pass
 
     # get the repository languages
-    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/languages", auth=('user', ACCESS_TOKEN))
-    data["languages"] = r.json()
+    response = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/languages",
+                            auth=('user', ACCESS_TOKEN))
+    data["languages"] = response.json()
+
+    if response.status_code != 200:
+        raise HTTPError(response.status_code)
 
     # get the topics for the repository
-    headers_for_topics = {
-        'Accept': 'application/vnd.github.mercy-preview+json'
-    }
-    try:
-        r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/topics", headers=headers_for_topics,
-                         auth=('user', ACCESS_TOKEN))
-        data["topics"] = r.json()["names"]
-    except KeyError:
-        tqdm.write(f"could not retrieve topics for {repo_owner}/{repo_name}")
+    headers_for_topics = {'Accept': 'application/vnd.github.mercy-preview+json'}
+    response = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}/topics", headers=headers_for_topics,
+                            auth=('user', ACCESS_TOKEN))
 
+    if response.status_code != 200:
+        raise HTTPError(response.status_code)
+
+    data["topics"] = response.json()["names"]
     return data
 
 
