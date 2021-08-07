@@ -1,11 +1,11 @@
 from dagster import DagsterType
 from dagster.core.instance import MayHaveInstanceWeakref
-import LOC_per_release
+import pipeline
 
 
 def repo_check(repo):
     if isinstance(repo, str):
-        return LOC_per_release.is_valid_repo_name(repo)
+        return pipeline.is_valid_repo_name(repo)
     return False
 
 Repository = DagsterType(
