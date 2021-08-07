@@ -215,6 +215,23 @@ def push_repository_to_mongodb(repo_owner, repo_name, data, client):
     repo_collection.update_one(search_dict, {'$set': data}, upsert=True)
 
 
+def call_cloc(repo_path, include_header=False):
+    """
+    Calls CLOC for a local git repository. Information about CLOC can be found here: https://github.com/AlDanial/cloc
+    :param repo_path: the path to the local git repository
+    :param include_header: whether to include the header information in the output
+    :return: The output of the 'cloc' tool in a dictionary format
+    """
+    p = subprocess.run(f"cloc . --vcs=git --json", cwd=repo_path, capture_output=True)
+    if p.returncode != 0:
+        raise SystemError(p.stderr)
+
+    tag_data = json.loads(p.stdout)
+    if not include_header:
+        header_data = tag_data.pop('header')
+    return tag_data
+
+
 def process_repository(repo_str):
     """
     Processes the repository by doing the following:
@@ -233,7 +250,7 @@ def process_repository(repo_str):
 
     repo_owner, repo_name = repo_str.split("/")
 
-    # get repository metadat from the github API
+    # get repository metadata from the github API
     tqdm.write("Retrieving repository metadata from the Github REST API")
     try:
         data = get_repository_metadata(repo_owner, repo_name)
@@ -282,12 +299,7 @@ def process_repository(repo_str):
 
         tqdm.write(f"counting LOC for tag: {tag}")
         # calling the 'cloc' command line tool to count LOC statistics for the repository
-        p3 = subprocess.run(f"cloc . --vcs=git --json", cwd=f"{REPOS_DIR}/{repo_name}", capture_output=True)
-        if p3.returncode != 0:
-            raise SystemError(p3.stderr)
-
-        tag_data = json.loads(p3.stdout)
-        header_data = tag_data.pop('header')  # this data can possibly be used later on
+        tag_data = call_cloc(repo_path)  # this data can possibly be used later on
 
         tqdm.write("pushing to mongodb...")
         push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
