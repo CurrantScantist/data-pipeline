@@ -47,10 +47,15 @@ def check_local_repo_exists(repo_name):
     :param repo_name: the name of the repository. Eg, 'react'
     :return: True if it exists, False otherwise
     """
-    # TODO: check the directory is not empty and is a git repository
-    if os.path.exists(os.path.join(REPOS_DIR, repo_name)):
-        if os.path.isdir(os.path.join(REPOS_DIR, repo_name)):
-            return True
+    path = os.path.join(REPOS_DIR, repo_name)
+    if os.path.exists(path):
+        if os.path.isdir(path):
+            # check that directory is a git repository
+            try:
+                _ = git.Repo(path).git_dir
+                return True
+            except git.exc.InvalidGitRepositoryError:
+                return False
     return False
 
 
