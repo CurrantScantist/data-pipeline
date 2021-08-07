@@ -27,6 +27,15 @@ class Progress(git.RemoteProgress):
         tqdm.write(self._cur_line)
 
 
+class RemoteRepoNotFoundError(Exception):
+    """
+    Custom error for when a remote repository is not found on github.com
+    """
+    def __init__(self, message):
+        self.message = message
+        super.__init__(message)
+
+
 def get_releases(repo_owner, repo_name):
     """
     Retrieves a list of releases for a github repository
@@ -151,6 +160,12 @@ def get_repository_metadata(repo_owner, repo_name):
     r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', ACCESS_TOKEN))
     r = r.json()
 
+    # TODO: check status code of request
+
+    if 'message' in r.keys():
+        if r['message'].lower() == 'not found':
+            raise RemoteRepoNotFoundError(f"Repository: {repo_owner}/{repo_name} could not be found on github.com")
+
     data["name"] = repo_name
     data["owner"] = repo_owner
 
@@ -218,10 +233,12 @@ def process_repository(repo_str):
 
     repo_owner, repo_name = repo_str.split("/")
 
-    # check if repository exists on github.com
-    repo_exists, response = check_remote_repo_exists(repo_owner, repo_name)
-    if not repo_exists:
-        tqdm.write(f"Repository: {repo_owner}/{repo_name} could not be found on github.com")
+    # get repository metadat from the github API
+    tqdm.write("Retrieving repository metadata from the Github REST API")
+    try:
+        data = get_repository_metadata(repo_owner, repo_name)
+    except RemoteRepoNotFoundError as e:
+        tqdm.write(e)
         return
 
     repo_path = os.path.join(REPOS_DIR, repo_name)
@@ -236,20 +253,17 @@ def process_repository(repo_str):
 
     # get the tags from the repository
     tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
-
     tqdm.write(f"There were {len(tags)} tags found in the repository")
 
-    # get the mongoDB client
-    mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
-
-    # get the repository metadata
-    tqdm.write("Retrieving repository metadata from the Github REST API")
-    data = get_repository_metadata(repo_owner, repo_name)
+    # adding some tag related information to the repository metadata
     data["num_tags"] = len(tags)
     if len(tags) > 0:
         data["latest_tag"] = tags[-1].name
     else:
         data["latest_tag"] = None
+
+    # get the mongoDB client
+    mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
 
     # push the repository data to mongoDB
     tqdm.write("Pushing repository data to mongoDB")
