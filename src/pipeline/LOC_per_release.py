@@ -9,8 +9,11 @@ import git
 import requests
 from tqdm.auto import tqdm
 from pymongo import MongoClient
+from dotenv import load_dotenv
 
-from ..secrets import *
+load_dotenv()
+ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
+CONNECTION_STRING = os.environ.get('CONNECTION_STRING')
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPOS_DIR = os.path.join(CURRENT_DIR, "tmp")

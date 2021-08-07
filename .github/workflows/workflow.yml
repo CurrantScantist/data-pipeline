@@ -20,6 +20,9 @@ jobs:
         pip install coverage
         pip install pytest-cov
     - name: 'Generate report'
+      env:
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        CONNECTION_STRING: ${{ secrets.CONNECTION_STRING }}
       run: |
         pytest --cov=./src/
         coverage html
