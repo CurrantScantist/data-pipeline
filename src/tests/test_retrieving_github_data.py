@@ -1,7 +1,6 @@
 import pytest
 
 from src.pipeline import pipeline
-from unittest import mock
 
 
 def test_get_repository_metadata_successful(requests_mock):
