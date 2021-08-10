@@ -9,36 +9,33 @@ Then run the following command:
 ```
 pip install -r requirements.txt
 ```
-Also you will need to create a file named **secrets.py** which contains the necessary
+Also you will need to create a file for environment variables named **.env** which contains the necessary
 access tokens for the database and APIs.
 
 ## Usage
 
-### pipeline.py
+### dagster_pipeline.py
 To open the dagit web server run the following command in terminal:
 ```
-dagit -f pipeline.py
+dagit -f ./src/pipeline/dagster_pipeline.py
 ```
 A new web page should open with the dagit UI.
 
-### pipeline_draft.py
-This file contains the basic functionality of the data pipeline without typechecking, logs, UI, etc.
-To run the pipeline_draft.py file, simply run it like any regular python file using either the terminal
-or an IDE.
-```
-python pipeline_draft.py
-```
-
-### LOC_per_release.py
+### main.py
 This is the newest addition to the repository. It contains the necessary functions for a pipeline which
-calculates statistics about the LOC of a github repository. It calculates statistics for each release retrieved
-from the github REST API for a particular repository and it pushes the data to the 'releases' collection on mongodb.
+calculates statistics about the LOC of a github repository. It calculates statistics for each tag in the
+particular repository, and then it pushes the data to the 'releases' collection on mongodb.
 
 **Note:** In order for the LOC statistics to be calculated you must have 'cloc' installed on your system and it must
 be accessible from the terminal by running the ```cloc``` command. The tool can be found here https://github.com/AlDanial/cloc
 
 Open the CLI for this pipeline by running it from the terminal
 ```shell
-python LOC_per_release.py
+python ./src/main.py
 ```
+
+## Testing
+To run the unit tests for the pipeline functions. Make sure pytest is installed and simply run the command `pytest`
+in the root directory.
+Code coverage html reports can be found as artefacts in the github actions workflows
 
