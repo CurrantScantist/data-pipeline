@@ -4,6 +4,7 @@ import re
 import subprocess
 import ssl
 import time
+import datetime
 
 import git
 import requests
@@ -252,6 +253,48 @@ def call_cloc(repo_path, include_header=False):
     return tag_data
 
 
+def get_commits_per_author(repo, default_branch):
+    data = {}
+    all_time_total = 0
+    last_30_days_total = 0
+    for commit in repo.iter_commits(default_branch):
+        if commit.author.name in data.keys():
+            data[commit.author.name]["all_time"] += 1
+            all_time_total += 1
+            # check if the commit was in the most recent 30 days
+            if (datetime.datetime.now(datetime.timezone.utc) - commit.committed_datetime) < datetime.timedelta(days=30):
+                data[commit.author.name]["last_30_days"] += 1
+                last_30_days_total += 1
+        else:
+            data[commit.author.name] = {
+                "name": commit.author.name,
+                "all_time": 0,
+                "last_30_days": 0
+            }
+    # sort authors by number of commits
+    all_time_list = sorted(data.values(), key=lambda x: x["all_time"], reverse=True)
+    last_30_days_list = sorted(data.values(), key=lambda x: x["last_30_days"], reverse=True)
+    MAX_AUTHORS = 25
+    to_return = {
+        "all_time": {
+            "top_25": all_time_list[:min(MAX_AUTHORS, len(all_time_list))],
+            "total": all_time_total
+        },
+        "last_30_days": {
+            "top_25": last_30_days_list[:min(MAX_AUTHORS, len(last_30_days_list))],
+            "total": last_30_days_total
+        }
+    }
+    print(f"num of authors: {len(all_time_list)}")
+    with open('./test.json', 'w') as file:
+        file.write(json.dumps(to_return))
+    return to_return
+
+
+def get_commits_per_month():
+    pass
+
+
 def process_repository(repo_str):
     """
     Processes the repository by doing the following:
@@ -293,6 +336,9 @@ def process_repository(repo_str):
     # get the tags from the repository
     tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
     tqdm.write(f"There were {len(tags)} tags found in the repository")
+
+    tqdm.write("calculating commit data")
+    get_commits_per_author(repo, data['default_branch'])
 
     # adding some tag related information to the repository metadata
     data["num_tags"] = len(tags)
