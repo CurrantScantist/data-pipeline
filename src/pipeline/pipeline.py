@@ -270,6 +270,8 @@ def process_repository(repo_str):
 
     repo_owner, repo_name = repo_str.split("/")
 
+    tqdm.write(f"Running pipeline process for repository: {repo_str}")
+
     # get repository metadata from the github API
     tqdm.write("Retrieving repository metadata from the Github REST API")
     try:
