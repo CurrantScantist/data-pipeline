@@ -94,11 +94,12 @@ def check_remote_repo_exists(repo_owner, repo_name):
     :return: a tuple. first item: boolean of whether the repository exists on github.com, second item: the data object
     returned from the github API
     """
-    r = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', ACCESS_TOKEN))
-    r = r.json()
-    if 'message' in r.keys():
-        if r['message'].lower() == 'not found':
+    response = requests.get(f"https://api.github.com/repos/{repo_owner}/{repo_name}", auth=('user', ACCESS_TOKEN))
+    r = response.json()
+    if response.status_code != 200:
+        if response.status_code == 404:
             return False, r
+        raise HTTPError(response.status_code)
     return True, r
 
 
