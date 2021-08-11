@@ -188,9 +188,16 @@ def get_repository_metadata(repo_owner, repo_name):
     data["name"] = repo_name
     data["owner"] = repo_owner
 
+    owner_keys = ["login", "avatar_url", "gravatar_id", "html_url", "type"]
+    # filtering the json response to only include the keys above
+    data["owner_obj"] = dict(zip(owner_keys, [r["owner"][key] for key in owner_keys]))
+    if 'organization' in r:
+        data["organization_obj"] = dict(zip(owner_keys, [r["organization"][key] for key in owner_keys]))
+
     keys = ["description", "forks", "forks_count", "language", "stargazers_count", "watchers_count", "watchers", "size",
-            "default_branch", "open_issues_count", "open_issues",
-            "topics", "has_issues", "archived", "disabled", "visibility", "pushed_at", "created_at", "updated_at"]
+            "default_branch", "open_issues_count", "open_issues", "topics", "has_issues", "archived", "disabled",
+            "visibility", "pushed_at", "created_at", "updated_at", "html_url", "fork", "homepage", "has_projects",
+            "has_downloads", "has_wiki", "has_pages", "license", "subscribers_count"]
     for key in keys:
         try:
             data[key] = r[key]
