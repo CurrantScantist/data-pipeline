@@ -11,14 +11,29 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@master
       with:
-        python-version: 3.7
-    - name: 'generate report'
+        python-version: 3.9
+    - name: 'Install dependencies'
       run: |
-        pip install coverage
+        cd $GITHUB_WORKSPACE
+        python -m pip install --upgrade pip
         pip install -r requirements.txt
-        coverage run -m unittest test_pipeline_draft.py
+        pip install coverage
+        pip install pytest-cov
+    - name: 'Generate report'
+      env:
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        CONNECTION_STRING: ${{ secrets.CONNECTION_STRING }}
+      run: |
+        pytest --cov=./src/
+        coverage html
+    - name: Archive code coverage html report
+      uses: actions/upload-artifact@v2
+      with:
+        name: code-coverage-report
+        path: htmlcov
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         flags: unittests
         fail_ci_if_error: true

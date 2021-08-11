@@ -1,15 +1,11 @@
 from dagster import DagsterType
 from dagster.core.instance import MayHaveInstanceWeakref
+import pipeline
 
 
 def repo_check(repo):
     if isinstance(repo, str):
-        repo_split = repo.split("/")
-        if len(repo_split) == 2:
-            owner, repository = repo_split
-            # TODO: check the naming conventions for invalid characters
-            
-            return True
+        return pipeline.is_valid_repo_name(repo)
     return False
 
 Repository = DagsterType(
@@ -33,14 +29,11 @@ def metadata_check(metadata):
         ("versionSize", int),
         ("versionNumberOfCommits", int)
     ]
-    for key, type in expected:
+    for key, val_type in expected:
         if key not in metadata:
             return False
-        else:
-            if not isinstance(metadata[key], type):
-                return False
-    
-    # TODO: check ranges for integers, and check dates, version numbers, etc
+        if not isinstance(metadata[key], val_type):
+            return False
     return True
      
 Metadata = DagsterType(
