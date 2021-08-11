@@ -295,6 +295,31 @@ def get_commits_per_month():
     pass
 
 
+def reduce_releases(releases):
+    """
+    Reduces a list of tag names to a shorter list of tag names. The purpose of this function is to identify a subset
+    of all the git tags which will be processed by the pipeline, so that the pipeline does not need to process all tags.
+    :param releases: a list of release/tag names
+    :return: a subset of the input list
+    """
+    if len(releases) < 10:
+        return releases
+
+    max_releases = 30
+    # calculate N to aim for less than 30 releases
+    N = max(2, round(len(releases) / max_releases))
+
+    first = releases.pop(0)
+    last = releases.pop(len(releases) - 1)
+    good_releases = []
+
+    for index, release in enumerate(releases):
+        if index % N == 0:
+            good_releases.append(release)
+
+    return [first] + good_releases + [last]
+
+
 def process_repository(repo_str):
     """
     Processes the repository by doing the following:
@@ -346,6 +371,9 @@ def process_repository(repo_str):
         data["latest_tag"] = tags[-1].name
     else:
         data["latest_tag"] = None
+
+    # reducing the number of tags
+    tags = reduce_releases(tags)
 
     # get the mongoDB client
     mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
