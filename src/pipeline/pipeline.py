@@ -314,20 +314,28 @@ def get_commits_per_author(repo, default_branch):
     data = {}
     all_time_total = 0
     last_30_days_total = 0
-    for commit in repo.iter_commits(default_branch):
-        if commit.author.name in data.keys():
-            data[commit.author.name]["all_time"] += 1
-            all_time_total += 1
+    commit_set = set()
+    for ref in repo.references:
+        for commit in repo.iter_commits(ref.name):
+            # if the commit has already been counted for another branch, ignore it
+            if commit.hexsha in commit_set:
+                continue
+            commit_set.add(commit.hexsha)
+            if commit.author.name in data.keys():
+                data[commit.author.name]["all_time"] += 1
+                all_time_total += 1
+            else:
+                data[commit.author.name] = {
+                    "name": commit.author.name,
+                    "all_time": 1,
+                    "last_30_days": 0
+                }
             # check if the commit was in the most recent 30 days
-            if (datetime.datetime.now(datetime.timezone.utc) - commit.committed_datetime) < datetime.timedelta(days=30):
+            if (datetime.datetime.now(datetime.timezone.utc) - commit.committed_datetime) < datetime.timedelta(
+                    days=30):
                 data[commit.author.name]["last_30_days"] += 1
                 last_30_days_total += 1
-        else:
-            data[commit.author.name] = {
-                "name": commit.author.name,
-                "all_time": 0,
-                "last_30_days": 0
-            }
+
     # sort authors by number of commits
     all_time_list = sorted(data.values(), key=lambda x: x["all_time"], reverse=True)
     last_30_days_list = sorted(data.values(), key=lambda x: x["last_30_days"], reverse=True)
