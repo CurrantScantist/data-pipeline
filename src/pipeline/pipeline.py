@@ -260,6 +260,56 @@ def call_cloc(repo_path, include_header=False):
     return tag_data
 
 
+def download_scantist_bom_detector(url="https://scripts.scantist.com/scantist-bom-detect.jar"):
+    file_name = url.split("/")[-1]
+    file_path = os.path.join(REPOS_DIR, file_name)
+    # check if the file exists first
+    if os.path.exists(file_path):
+        return False, file_path
+
+    r = requests.get(url)
+    if r.status_code != 200:
+        raise HTTPError(r.status_code)
+
+    with open(file_path, 'wb') as output_file:
+        output_file.write(r.content)
+
+    return True, file_path
+
+
+def call_scantist_SCA(repo_path, bom_detector_path):
+    p = subprocess.run(f"java -jar {bom_detector_path} -working_dir {repo_path} -download_report")
+    if p.returncode != 0:
+        raise SystemError(p.stderr)
+
+    results_path = os.path.join(repo_path, 'Scantist-Reports.json')
+    with open(results_path, 'r') as results_file:
+        data = json.loads(results_file.read())
+
+    os.remove(results_path)
+
+    return data
+
+
+def push_scantist_sca_data_to_mongodb(repo_owner, repo_name, tag_name, data, client):
+    """
+    Pushes the repository metadata to the mongoDB database
+    :param repo_owner: the owner of the repository. Eg, 'facebook'
+    :param repo_name: the name of the repository. Eg, 'react'
+    :param data: the metadata for the repository (python dictionary)
+    :param client: the MongoDB client
+    :return: None
+    """
+    db = client['test_db']
+    sca_collection = db['sca_data']
+    search_dict = {
+        "name": repo_name,
+        "owner": repo_owner,
+        "tag_name": tag_name
+    }
+    sca_collection.update_one(search_dict, {'$set': data}, upsert=True)
+
+
 def get_commits_per_author(repo, default_branch):
     data = {}
     all_time_total = 0
@@ -298,7 +348,9 @@ def get_commits_per_author(repo, default_branch):
     return to_return
 
 
-def get_commits_per_month():
+def get_commits_per_month(repo, default_branch):
+    for commit in repo.iter_commits(default_branch):
+        pass
     pass
 
 
@@ -309,10 +361,10 @@ def reduce_releases(releases):
     :param releases: a list of release/tag names
     :return: a subset of the input list
     """
-    if len(releases) < 10:
+    if len(releases) < 5:
         return releases
 
-    max_releases = 30
+    max_releases = 15
     # calculate N to aim for less than 30 releases
     N = max(2, round(len(releases) / max_releases))
 
@@ -381,6 +433,7 @@ def process_repository(repo_str):
 
     # reducing the number of tags
     tags = reduce_releases(tags)
+    tqdm.write(f"number of tags reduced to: {len(tags)}")
 
     # get the mongoDB client
     mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
