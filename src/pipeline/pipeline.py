@@ -310,7 +310,13 @@ def push_scantist_sca_data_to_mongodb(repo_owner, repo_name, tag_name, data, cli
     sca_collection.update_one(search_dict, {'$set': data}, upsert=True)
 
 
-def get_commits_per_author(repo, default_branch):
+def get_commits_per_author(repo):
+    """
+    Gets a tally of the number of commits all time and in the last 30 days for each author and returns a dictionary
+    structure containing the data
+    :param repo: the Repo type from gitPython
+    :return: a dictionary with the commit data
+    """
     data = {}
     all_time_total = 0
     last_30_days_total = 0
@@ -340,7 +346,7 @@ def get_commits_per_author(repo, default_branch):
     all_time_list = sorted(data.values(), key=lambda x: x["all_time"], reverse=True)
     last_30_days_list = sorted(data.values(), key=lambda x: x["last_30_days"], reverse=True)
     MAX_AUTHORS = 25
-    to_return = {
+    return {
         "all_time": {
             "top_25": all_time_list[:min(MAX_AUTHORS, len(all_time_list))],
             "total": all_time_total
@@ -350,10 +356,6 @@ def get_commits_per_author(repo, default_branch):
             "total": last_30_days_total
         }
     }
-    print(f"num of authors: {len(all_time_list)}")
-    with open('./test.json', 'w') as file:
-        file.write(json.dumps(to_return))
-    return to_return
 
 
 def get_commits_per_month(repo, default_branch):
