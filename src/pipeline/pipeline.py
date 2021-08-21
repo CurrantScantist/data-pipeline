@@ -24,6 +24,9 @@ if not os.path.exists(REPOS_DIR):
 
 
 class Progress(git.RemoteProgress):
+    """
+    Class for showing progress to the console while a repository is cloning locally
+    """
     def update(self, op_code, cur_count, max_count=None, message=''):
         tqdm.write(self._cur_line)
 
@@ -46,6 +49,16 @@ class HTTPError(Exception):
     def __init__(self, status_code):
         self.status_code = status_code
         self.message = f"Error with status code: {status_code}"
+        super().__init__(self.message)
+
+
+class InvalidArgumentError(Exception):
+    """
+    Custom error for when an argument to a function is not within an expected range
+    """
+
+    def __init__(self, message):
+        self.message = message
         super().__init__(self.message)
 
 
@@ -371,6 +384,7 @@ def get_commits_per_author(repo):
     }
 
 
+<<<<<<< HEAD
 def get_monthly_commit_data(repo):
     """
     Gets the total number of commits for each month of a repo and gets total number of contributors per month,
@@ -409,28 +423,39 @@ def get_monthly_commit_data(repo):
         "month_data": monthly_data_list
 
     }
+=======
+# def get_commits_per_month(repo, default_branch):
+#     for commit in repo.iter_commits(default_branch):
+#         pass
+#     pass
+>>>>>>> 985f75c0a339ba15a09153a187315852f863eaf5
 
 
 def reduce_releases(releases):
     """
     Reduces a list of tag names to a shorter list of tag names. The purpose of this function is to identify a subset
     of all the git tags which will be processed by the pipeline, so that the pipeline does not need to process all tags.
+    :param max_releases: the maximum number of releases that can be allowed
     :param releases: a list of release/tag names
     :return: a subset of the input list
     """
     if len(releases) < 5:
         return releases
 
-    max_releases = 15
+    if max_releases < 2:
+        raise InvalidArgumentError('max_releases must be greater than 2')
+
     # calculate N to aim for less than 30 releases
-    N = max(2, round(len(releases) / max_releases))
+    n = max(2, round(len(releases) / max_releases - 2))
+    if n < 2:
+        return releases
 
     first = releases.pop(0)
     last = releases.pop(len(releases) - 1)
     good_releases = []
 
     for index, release in enumerate(releases):
-        if index % N == 0:
+        if index % n == 0:
             good_releases.append(release)
 
     return [first] + good_releases + [last]
