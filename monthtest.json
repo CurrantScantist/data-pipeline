@@ -1,0 +1,379 @@
+{
+  "month_data": [
+    {
+      "month": "2021-08",
+      "commits": 15,
+      "contributor_count": 6
+    },
+    {
+      "month": "2021-07",
+      "commits": 9,
+      "contributor_count": 1
+    },
+    {
+      "month": "2021-06",
+      "commits": 12,
+      "contributor_count": 4
+    },
+    {
+      "month": "2021-05",
+      "commits": 15,
+      "contributor_count": 4
+    },
+    {
+      "month": "2021-04",
+      "commits": 16,
+      "contributor_count": 3
+    },
+    {
+      "month": "2021-03",
+      "commits": 34,
+      "contributor_count": 3
+    },
+    {
+      "month": "2021-02",
+      "commits": 39,
+      "contributor_count": 3
+    },
+    {
+      "month": "2021-01",
+      "commits": 60,
+      "contributor_count": 5
+    },
+    {
+      "month": "2020-12",
+      "commits": 31,
+      "contributor_count": 1
+    },
+    {
+      "month": "2020-11",
+      "commits": 49,
+      "contributor_count": 1
+    },
+    {
+      "month": "2020-10",
+      "commits": 49,
+      "contributor_count": 3
+    },
+    {
+      "month": "2020-09",
+      "commits": 49,
+      "contributor_count": 3
+    },
+    {
+      "month": "2020-08",
+      "commits": 5,
+      "contributor_count": 1
+    },
+    {
+      "month": "2020-07",
+      "commits": 92,
+      "contributor_count": 5
+    },
+    {
+      "month": "2020-06",
+      "commits": 49,
+      "contributor_count": 5
+    },
+    {
+      "month": "2020-05",
+      "commits": 31,
+      "contributor_count": 3
+    },
+    {
+      "month": "2020-04",
+      "commits": 18,
+      "contributor_count": 1
+    },
+    {
+      "month": "2020-03",
+      "commits": 39,
+      "contributor_count": 2
+    },
+    {
+      "month": "2020-02",
+      "commits": 17,
+      "contributor_count": 4
+    },
+    {
+      "month": "2020-01",
+      "commits": 48,
+      "contributor_count": 2
+    },
+    {
+      "month": "2019-12",
+      "commits": 48,
+      "contributor_count": 2
+    },
+    {
+      "month": "2019-11",
+      "commits": 64,
+      "contributor_count": 4
+    },
+    {
+      "month": "2019-10",
+      "commits": 25,
+      "contributor_count": 4
+    },
+    {
+      "month": "2019-09",
+      "commits": 7,
+      "contributor_count": 1
+    },
+    {
+      "month": "2019-08",
+      "commits": 61,
+      "contributor_count": 4
+    },
+    {
+      "month": "2019-07",
+      "commits": 4,
+      "contributor_count": 2
+    },
+    {
+      "month": "2019-06",
+      "commits": 11,
+      "contributor_count": 4
+    },
+    {
+      "month": "2019-05",
+      "commits": 23,
+      "contributor_count": 3
+    },
+    {
+      "month": "2019-04",
+      "commits": 1,
+      "contributor_count": 1
+    },
+    {
+      "month": "2019-03",
+      "commits": 18,
+      "contributor_count": 2
+    },
+    {
+      "month": "2019-02",
+      "commits": 38,
+      "contributor_count": 3
+    },
+    {
+      "month": "2019-01",
+      "commits": 52,
+      "contributor_count": 8
+    },
+    {
+      "month": "2018-10",
+      "commits": 30,
+      "contributor_count": 5
+    },
+    {
+      "month": "2018-09",
+      "commits": 37,
+      "contributor_count": 3
+    },
+    {
+      "month": "2018-08",
+      "commits": 15,
+      "contributor_count": 3
+    },
+    {
+      "month": "2018-07",
+      "commits": 5,
+      "contributor_count": 2
+    },
+    {
+      "month": "2018-06",
+      "commits": 3,
+      "contributor_count": 1
+    },
+    {
+      "month": "2018-05",
+      "commits": 11,
+      "contributor_count": 3
+    },
+    {
+      "month": "2018-04",
+      "commits": 52,
+      "contributor_count": 5
+    },
+    {
+      "month": "2018-03",
+      "commits": 17,
+      "contributor_count": 3
+    },
+    {
+      "month": "2018-02",
+      "commits": 5,
+      "contributor_count": 2
+    },
+    {
+      "month": "2018-01",
+      "commits": 4,
+      "contributor_count": 1
+    },
+    {
+      "month": "2017-12",
+      "commits": 3,
+      "contributor_count": 1
+    },
+    {
+      "month": "2017-11",
+      "commits": 2,
+      "contributor_count": 2
+    },
+    {
+      "month": "2017-10",
+      "commits": 26,
+      "contributor_count": 2
+    },
+    {
+      "month": "2017-09",
+      "commits": 34,
+      "contributor_count": 3
+    },
+    {
+      "month": "2017-08",
+      "commits": 2,
+      "contributor_count": 1
+    },
+    {
+      "month": "2017-07",
+      "commits": 10,
+      "contributor_count": 2
+    },
+    {
+      "month": "2017-06",
+      "commits": 2,
+      "contributor_count": 1
+    },
+    {
+      "month": "2017-05",
+      "commits": 18,
+      "contributor_count": 1
+    },
+    {
+      "month": "2017-02",
+      "commits": 3,
+      "contributor_count": 1
+    },
+    {
+      "month": "2017-01",
+      "commits": 32,
+      "contributor_count": 3
+    },
+    {
+      "month": "2016-12",
+      "commits": 10,
+      "contributor_count": 2
+    },
+    {
+      "month": "2016-11",
+      "commits": 19,
+      "contributor_count": 1
+    },
+    {
+      "month": "2016-10",
+      "commits": 29,
+      "contributor_count": 3
+    },
+    {
+      "month": "2016-09",
+      "commits": 40,
+      "contributor_count": 3
+    },
+    {
+      "month": "2016-08",
+      "commits": 12,
+      "contributor_count": 3
+    },
+    {
+      "month": "2016-07",
+      "commits": 31,
+      "contributor_count": 3
+    },
+    {
+      "month": "2016-06",
+      "commits": 19,
+      "contributor_count": 2
+    },
+    {
+      "month": "2016-05",
+      "commits": 43,
+      "contributor_count": 1
+    },
+    {
+      "month": "2016-04",
+      "commits": 30,
+      "contributor_count": 2
+    },
+    {
+      "month": "2016-03",
+      "commits": 7,
+      "contributor_count": 1
+    },
+    {
+      "month": "2016-02",
+      "commits": 9,
+      "contributor_count": 1
+    },
+    {
+      "month": "2016-01",
+      "commits": 67,
+      "contributor_count": 5
+    },
+    {
+      "month": "2015-12",
+      "commits": 36,
+      "contributor_count": 3
+    },
+    {
+      "month": "2015-11",
+      "commits": 77,
+      "contributor_count": 1
+    },
+    {
+      "month": "2015-10",
+      "commits": 105,
+      "contributor_count": 2
+    },
+    {
+      "month": "2015-09",
+      "commits": 18,
+      "contributor_count": 1
+    },
+    {
+      "month": "2015-07",
+      "commits": 17,
+      "contributor_count": 1
+    },
+    {
+      "month": "2015-06",
+      "commits": 52,
+      "contributor_count": 2
+    },
+    {
+      "month": "2015-04",
+      "commits": 6,
+      "contributor_count": 1
+    },
+    {
+      "month": "2015-01",
+      "commits": 1,
+      "contributor_count": 2
+    },
+    {
+      "month": "2014-02",
+      "commits": 12,
+      "contributor_count": 3
+    },
+    {
+      "month": "2014-01",
+      "commits": 9,
+      "contributor_count": 5
+    },
+    {
+      "month": "2013-10",
+      "commits": 5,
+      "contributor_count": 1
+    }
+  ]
+}
