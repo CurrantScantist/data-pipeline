@@ -135,4 +135,4 @@ dmypy.json
 src/secrets.py
 
 # tmp folder containing temporary repositories
-./src/pipeline/tmp
+/src/pipeline/tmp
