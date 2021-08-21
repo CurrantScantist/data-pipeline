@@ -384,7 +384,6 @@ def get_commits_per_author(repo):
     }
 
 
-<<<<<<< HEAD
 def get_monthly_commit_data(repo):
     """
     Gets the total number of commits for each month of a repo and gets total number of contributors per month,
@@ -423,15 +422,9 @@ def get_monthly_commit_data(repo):
         "month_data": monthly_data_list
 
     }
-=======
-# def get_commits_per_month(repo, default_branch):
-#     for commit in repo.iter_commits(default_branch):
-#         pass
-#     pass
->>>>>>> 985f75c0a339ba15a09153a187315852f863eaf5
 
 
-def reduce_releases(releases):
+def reduce_releases(releases, max_releases=15):
     """
     Reduces a list of tag names to a shorter list of tag names. The purpose of this function is to identify a subset
     of all the git tags which will be processed by the pipeline, so that the pipeline does not need to process all tags.
