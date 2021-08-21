@@ -370,10 +370,10 @@ def get_commits_per_author(repo):
     }
 
 
-def get_commits_per_month(repo, default_branch):
-    for commit in repo.iter_commits(default_branch):
-        pass
-    pass
+# def get_commits_per_month(repo, default_branch):
+#     for commit in repo.iter_commits(default_branch):
+#         pass
+#     pass
 
 
 def reduce_releases(releases):
