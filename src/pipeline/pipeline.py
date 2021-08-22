@@ -396,6 +396,7 @@ def get_monthly_commit_data(repo):
     all_time_total = 0
     contributor_names = set()
     for ref in repo.references:
+
         for commit in repo.iter_commits(ref.name):
             # if the commit has already been counted for another branch, ignore it
             if commit.hexsha in commit_set:
@@ -411,13 +412,18 @@ def get_monthly_commit_data(repo):
                     "month": commit_date,
                     "commits": 1,
                     "contributor_count": 1,
+                    "contributor_name": {commit.author.name}
                 }
             # If the contributor name is unique:
-            if commit.author.name not in contributor_names:
+            if commit.author.name not in data[commit_date]["contributor_name"]:
                 data[commit_date]["contributor_count"] += 1
-                contributor_names.add(commit.author.name)
+                data[commit_date]["contributor_name"].add(commit.author.name)
 
-    monthly_data_list = sorted(data.values(), key=lambda x: x["month"], reverse=True)
+    monthly_data_list = sorted(data.values(), key=lambda x: x["month"], reverse=True) # list of dictionary of set
+    for i in range(len(monthly_data_list)):
+        monthly_data_list[i].pop("contributor_name")
+
+
     return {
         "month_data": monthly_data_list
 
