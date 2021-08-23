@@ -60,9 +60,10 @@ def generate_node_link_data(dep_tree_data, report_data, max_level=10):
     }
     licenses = report_data["results"]["licenses"]
     licenses = list(set(x["license_name"] if x["license_name"] is not None else "None" for x in licenses))
-    licenses = dict(zip(licenses, list(range(len(licenses)))))
 
-    print(licenses)
+    data["categories"] = [{"name": x, "keyword": {}, "base": x} for x in licenses]
+
+    licenses = dict(zip(licenses, list(range(len(licenses)))))
 
     def recurse(obj, parent=None):
         nonlocal data
