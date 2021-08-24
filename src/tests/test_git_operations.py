@@ -1,6 +1,7 @@
 import pytest
 
 from src.pipeline import pipeline
+from src.pipeline.exceptions import *
 from unittest.mock import MagicMock
 import json
 import git
@@ -24,7 +25,7 @@ def test_check_remote_repo_exists_error(requests_mock):
     owner = 'owner'
     repo = 'repo'
     requests_mock.get(f"https://api.github.com/repos/{owner}/{repo}", json={}, status_code=400)
-    with pytest.raises(pipeline.HTTPError) as err:
+    with pytest.raises(HTTPError) as err:
         pipeline.check_remote_repo_exists(owner, repo)
 
 

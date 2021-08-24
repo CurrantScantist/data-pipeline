@@ -1,5 +1,5 @@
 import requests
-import pipeline.pipeline as pipeline
+from .exceptions import *
 import subprocess
 import json
 import os
@@ -22,7 +22,7 @@ def download_scantist_bom_detector(repos_dir, url="https://scripts.scantist.com/
 
     r = requests.get(url)
     if r.status_code != 200:
-        raise pipeline.HTTPError(r.status_code)
+        raise HTTPError(r.status_code)
 
     with open(file_path, 'wb') as output_file:
         output_file.write(r.content)
@@ -131,14 +131,14 @@ def push_scantist_sca_data_to_mongodb(repo_owner, repo_name, tag_name, data, cli
 
 def collect_scantist_sca_data(repos_dir, repo_path):
     # downloading the scantist-bom-detector
-    # tqdm.write('checking if the scantist-bom-detector is already downloaded')
-    # did_download, bom_detector_path = download_scantist_bom_detector(repos_dir)
-    # if did_download:
-    #     tqdm.write("Scantist_bom_detector downloaded successfully")
-    # else:
-    #     tqdm.write("Scantist_bom_detector was found locally")
+    tqdm.write('checking if the scantist-bom-detector is already downloaded')
+    did_download, bom_detector_path = download_scantist_bom_detector(repos_dir)
+    if did_download:
+        tqdm.write("Scantist_bom_detector downloaded successfully")
+    else:
+        tqdm.write("Scantist_bom_detector was found locally")
 
-    # call_scantist_sca(repo_path, bom_detector_path)
+    call_scantist_sca(repo_path, bom_detector_path)
 
     with open(os.path.join(repo_path, "dependency-tree.json"), 'r') as dep_file:
         dep_tree_data = json.loads(dep_file.read())

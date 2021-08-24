@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 from tqdm.auto import tqdm
 
-import pipeline.sca_helpers as sca_helpers
+from .sca_helpers import *
+from .exceptions import *
 
 load_dotenv()
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
@@ -33,37 +34,6 @@ class Progress(git.RemoteProgress):
 
     def update(self, op_code, cur_count, max_count=None, message=''):
         tqdm.write(self._cur_line)
-
-
-class RemoteRepoNotFoundError(Exception):
-    """
-    Custom error for when a remote repository is not found on github.com
-    """
-
-    def __init__(self, message):
-        self.message = message
-        super().__init__(message)
-
-
-class HTTPError(Exception):
-    """
-    Custom error for when a request returns an unexpected status code
-    """
-
-    def __init__(self, status_code):
-        self.status_code = status_code
-        self.message = f"Error with status code: {status_code}"
-        super().__init__(self.message)
-
-
-class InvalidArgumentError(Exception):
-    """
-    Custom error for when an argument to a function is not within an expected range
-    """
-
-    def __init__(self, message):
-        self.message = message
-        super().__init__(self.message)
 
 
 def get_releases(repo_owner, repo_name):
@@ -458,7 +428,7 @@ def process_repository(repo_str):
     # adding some tag related information to the repository metadata
 
     tqdm.write('Collecting SCA data')
-    sca_helpers.collect_scantist_sca_data(REPOS_DIR, repo_path)
+    collect_scantist_sca_data(REPOS_DIR, repo_path)
 
     # exit(0)
 
