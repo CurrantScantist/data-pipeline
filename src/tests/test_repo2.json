@@ -1,0 +1,31 @@
+{
+    "branch1" : [
+        {
+            "hexsha": "abcdef",
+            "committed_datetime": "2021-08-04 15:38:43+01:00",
+            "author": {"name": "A"}
+        },
+        {
+            "hexsha": "abcde",
+            "committed_datetime": "2021-08-05 15:38:43+01:00",
+            "author": {"name": "A"}
+        },
+        {
+            "hexsha": "abcd",
+            "committed_datetime": "2021-08-06 15:38:43+01:00",
+            "author": {"name": "B"}
+        }
+    ],
+    "branch2" : [
+        {
+            "hexsha": "abc",
+            "committed_datetime": "2021-06-07 15:38:43+01:00",
+            "author": {"name": "A"}
+        },
+        {
+            "hexsha": "ab",
+            "committed_datetime": "2021-08-08 15:38:43+01:00",
+            "author": {"name": "B"}
+        }
+    ]
+}

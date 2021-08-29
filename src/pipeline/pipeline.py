@@ -273,6 +273,7 @@ def get_commits_per_author(repo):
                     "all_time": 1,
                     "last_30_days": 0
                 }
+                all_time_total += 1
             # check if the commit was in the most recent 30 days
             if (datetime.datetime.now(datetime.timezone.utc) - commit.committed_datetime) < datetime.timedelta(
                     days=30):
