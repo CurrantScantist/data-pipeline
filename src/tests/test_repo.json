@@ -1,0 +1,36 @@
+{
+    "branch1" : [
+        {
+            "hexsha": "abcdef",
+            "committed_datetime": "2020-01-09 15:38:43+01:00",
+            "author": {"name": "Stephen A"}
+        },
+        {
+            "hexsha": "abcde",
+            "committed_datetime": "2020-02-09 15:38:43+01:00",
+            "author": {"name": "Stephen B"}
+        },
+        {
+            "hexsha": "abcd",
+            "committed_datetime": "2020-05-09 15:38:43+01:00",
+            "author": {"name": "Stephen C"}
+        }
+    ],
+    "branch2" : [
+        {
+            "hexsha": "abc",
+            "committed_datetime": "2020-05-09 15:38:43+01:00",
+            "author": {"name": "Stephen D"}
+        },
+        {
+            "hexsha": "ab",
+            "committed_datetime": "2020-05-09 15:38:43+01:00",
+            "author": {"name": "Stephen E"}
+        },
+        {
+            "hexsha": "a",
+            "committed_datetime": "2020-06-09 15:38:43+01:00",
+            "author": {"name": "Stephen F"}
+        }
+    ]
+}

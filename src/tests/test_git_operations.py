@@ -1,5 +1,6 @@
 import pytest
-
+# import sys
+# sys.path.insert(1,'/data-pipeline/src/pipeline')
 from src.pipeline import pipeline
 from src.pipeline.exceptions import *
 from unittest.mock import MagicMock
@@ -82,3 +83,18 @@ def test_clean_up_repo(mocker):
     mocker.patch('src.pipeline.pipeline.check_local_repo_exists', return_value=True)
     mocker.patch('git.rmtree', return_value=None)
     assert pipeline.clean_up_repo('repo') is None
+
+def test_get_monthly_commit_data(mocker):
+    # go through each line of the function get_monthly_commit_data, and ensure that each line is mocked out.
+
+
+    # load my fake repo
+    with open('test_repo.json') as f:
+        fakerepo = json.load(f) # our fakerepo
+
+    # run my pipeline.py function get_monthly_commit_data(fakerepo)
+    result_mock = MagicMock
+
+    mocker.patch('src.pipeline.pipeline.get_monthly_commit_data', return_value=result_mock)
+
+    assert repo.references

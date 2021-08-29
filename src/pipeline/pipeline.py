@@ -312,6 +312,7 @@ def get_monthly_commit_data(repo):
             if commit.hexsha in commit_set:
                 continue
             commit_set.add(commit.hexsha)
+            print(commit.hexsha)
 
             commit_date = commit.committed_datetime.strftime('%Y-%m')
             if commit_date in data.keys():
@@ -416,19 +417,19 @@ def process_repository(repo_str):
     # with open("test.json", "w") as file:
     #     file.write(json.dumps(test))
 
-    # monthtest = get_monthly_commit_data(repo)
+    monthtest = get_monthly_commit_data(repo)
 
-    # with open("monthtest.json", "w") as file:
-    #     file.write(json.dumps(monthtest))
+    with open("monthtest.json", "w") as file:
+        file.write(json.dumps(monthtest))
     # data["commits_per_author"] = get_commits_per_author(repo)
     # data["num_commits"] = data["commits_per_author"]["all_time"]["total"]
-    # exit(0)
+    exit(0)
 
     # exit(0)
     # adding some tag related information to the repository metadata
 
-    tqdm.write('Collecting SCA data')
-    collect_scantist_sca_data(REPOS_DIR, repo_path)
+    # tqdm.write('Collecting SCA data')
+    # collect_scantist_sca_data(REPOS_DIR, repo_path)
 
     # exit(0)
 
