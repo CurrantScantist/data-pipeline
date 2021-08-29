@@ -312,7 +312,7 @@ def get_monthly_commit_data(repo):
             if commit.hexsha in commit_set:
                 continue
             commit_set.add(commit.hexsha)
-            print(commit.hexsha)
+            # print(commit.hexsha)
 
             commit_date = commit.committed_datetime.strftime('%Y-%m')
             if commit_date in data.keys():

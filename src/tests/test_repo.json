@@ -18,9 +18,9 @@
     ],
     "branch2" : [
         {
-            "hexsha": "abc",
+            "hexsha": "abcd",
             "committed_datetime": "2020-05-09 15:38:43+01:00",
-            "author": {"name": "Stephen D"}
+            "author": {"name": "Stephen C"}
         },
         {
             "hexsha": "ab",
