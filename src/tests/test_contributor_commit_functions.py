@@ -5,19 +5,22 @@ from src.pipeline import pipeline
 import datetime
 import os
 import time
+from freezegun import freeze_time
 
 
-def test_get_commits_per_author():
+@freeze_time("2021-08-29")
+def test_get_commits_per_author(mocker):
     # go through each line of the function get_monthly_commit_data, and ensure that each line is mocked out.
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    date_format = "%Y-%m-%d %H:%M:%S%z"
 
     with open(os.path.join(current_dir, 'test_repo2.json'), 'r') as f:
         fakerepo = json.load(f)  # our fakerepo
 
     def iter_commits(branch_name):
+        nonlocal date_format
         commits = fakerepo[branch_name]
         commit_objs = []
-        date_format = "%Y-%m-%d %H:%M:%S%z"
         for commit in commits:
             c_mock = MagicMock()
             c_mock.hexsha = commit["hexsha"]
@@ -34,14 +37,6 @@ def test_get_commits_per_author():
         branches.append(mock)
 
     repo = MagicMock(references=branches, iter_commits=iter_commits)
-
-    # mocker.patch(
-    #     'datetime.datetime.now(datetime.timezone.utc) - commit.committed_datetime) < datetime.timedelta(days=30)',
-    #     return_value="True"
-    # )
-    # Change if (datetime.datetime.now(datetime.timezone.utc) - commit.committed_datetime) < datetime.timedelta(
-    # days=30):
-    # Ensure that datetime.now is 29/08/2021
 
     expected_result = {
         "all_time": {
