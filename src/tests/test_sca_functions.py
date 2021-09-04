@@ -43,8 +43,27 @@ def test_download_scantist_bom_detector_error(requests_mock):
         sca_helpers.download_scantist_bom_detector('', url=test_url)
 
 
-def test_call_scantist_sca():
-    pass
+def test_call_scantist_sca_successful(mocker):
+    test_data = {"key": "test_data"}
+    result_mock = MagicMock(returncode=0)
+    mocker.patch(
+        'subprocess.run',
+        return_value=result_mock
+    )
+    with patch('src.pipeline.sca_helpers.open', mock_open(read_data=json.dumps(test_data))):
+        results = sca_helpers.call_scantist_sca('', '')
+
+    assert results == test_data
+
+
+def test_call_scantist_sca_error(mocker):
+    result_mock = MagicMock(returncode=1)
+    mocker.patch(
+        'subprocess.run',
+        return_value=result_mock
+    )
+    with pytest.raises(SystemError) as err:
+        sca_helpers.call_scantist_sca('', '')
 
 
 def test_generate_node_link_data():
