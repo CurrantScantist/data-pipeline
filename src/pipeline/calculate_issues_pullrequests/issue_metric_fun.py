@@ -3,15 +3,10 @@ import json
 from collections import Counter
 
 
-# 函数名称√
-# 在每个函数前注释该函数的对象：项目/issue√
-# 在每个函数前注释该函数的输入输出√
-
-
 # The number of created issues per month(object:item)
 # input:json.path
 # output:the number of new issues per month(as list)
-def issues_created_permonth(json_fn: str):
+def get_issues_created_per_month(json_fn: str):
     f = open(json_fn, 'r')
     data = json.load(f)
     res = []
@@ -30,7 +25,7 @@ def issues_created_permonth(json_fn: str):
 # The number of updated issues per month(object:item)
 # input:json.path
 # output:the number of updated issues per month(as list)
-def issues_updated_permonth(json_fn: str):
+def get_issues_updated_per_month(json_fn: str):
     f = open(json_fn, 'r')
     data = json.load(f)
     res = []
@@ -49,7 +44,7 @@ def issues_updated_permonth(json_fn: str):
 # The number of closed issues per month(object:item)
 # input:json.path
 # output:the number of closed issues per month(as list)
-def issues_closed_permonth(json_fn: str):
+def get_issues_closed_per_month(json_fn: str):
     f = open(json_fn, 'r')
     data = json.load(f)
     res = []
@@ -68,7 +63,7 @@ def issues_closed_permonth(json_fn: str):
 # How long have open issues been left open?(object:issues)
 # input:json.path
 # output:duration of each issue(as list)
-def issue_unresolved_duration(json_fn: str):
+def get_issue_unresolved_duration(json_fn: str):
     delaytime = []
     numberlist = []
     res = []
@@ -98,7 +93,7 @@ def issue_unresolved_duration(json_fn: str):
 # How long does it take for another contributor to respond(object:issues)
 # input:json.path
 # output:duration of each issue(as list)
-def issue_beresponded_duration(json_fn: str):
+def get_issue_be_responded_duration(json_fn: str):
     f = open(json_fn, 'r')
     data = json.load(f)
     numberlist = []
@@ -134,7 +129,7 @@ def issue_beresponded_duration(json_fn: str):
 # How long will it take to solve the issue(object:issues)
 # input:json.path
 # output:time to close(as list)
-def issue_closed_howtime(json_fn: str):
+def get_closed_issues_duration_open(json_fn: str):
     f = open(json_fn, 'r')
     data = json.load(f)
     numberlist = []
@@ -163,7 +158,7 @@ def issue_closed_howtime(json_fn: str):
 # average time to solve issus(object:item)
 # input:json.path
 # output:average time(as list)
-def issue_closed_avg(json_sn: str):
+def get_avg_time_to_solve_issues(json_sn: str):
     i = 0
     sum = 0
     f = open(json_fn, 'r')
@@ -190,13 +185,13 @@ if __name__ == "__main__":
     json_fn = 'michaelliao&learn-python3&issue&2021-09-05-17.json'  # json file name
 
     data = {
-        "issues_created_permonth": issues_created_permonth(json_fn),
-        "issues_updated_permonth": issues_updated_permonth(json_fn),
-        "issues_closed_permonth": issues_closed_permonth(json_fn),
-        "issue_unresolved_duration": issue_unresolved_duration(json_fn),
-        "issue_beresponded_duration": issue_beresponded_duration(json_fn),
-        "issue_closed_howtime": issue_closed_howtime(json_fn),
-        "issue_closed_avg": issue_closed_avg(json_fn)
+        "issues_created_per_month": get_issues_created_per_month(json_fn),
+        "issues_updated_per_month": get_issues_updated_per_month(json_fn),
+        "issues_closed_per_month": get_issues_closed_per_month(json_fn),
+        "issue_unresolved_duration": get_issue_unresolved_duration(json_fn),
+        "issue_be_responded_duration": get_issue_be_responded_duration(json_fn),
+        "closed_issues_duration_open": get_closed_issues_duration_open(json_fn),
+        "avg_time_to_solve_issues": get_avg_time_to_solve_issues(json_fn)
     }
 
     with open('results.json', 'w') as file:
