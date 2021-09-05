@@ -1,22 +1,19 @@
-import json
-import re
 import datetime
-from git import Repo
-from git.objects import commit
+import json
+
 from perceval.backends.core.github import GitHub
-from perceval.backends.core.gitlab import GitLab
 
 
-def save_issue2json(json_fn:str, owner:str, repository:str) -> None:
+def save_issue2json(json_fn: str, owner: str, repository: str) -> None:
     repo = GitHub(
-        owner=owner, 
-        repository=repository, 
-        api_token=["***"], # put your github token here
+        owner=owner,
+        repository=repository,
+        api_token=["***"],  # put your github token here
         sleep_for_rate=True)
-        
+
     json_data = {}
 
-    for item in repo.fetch():  #if it is necessary,you need to change the parameter define in github.py
+    for item in repo.fetch():  # if it is necessary,you need to change the parameter define in github.py
         # if 'pull_request' in item['data']:
         #     kind = 'Pull request'
         # else:
@@ -26,17 +23,18 @@ def save_issue2json(json_fn:str, owner:str, repository:str) -> None:
         num = item['data']['number']
         json_data[num] = {}
         json_data[num]['user'] = item['data']['user']['login']
-        json_data[num]['created_at'] = item['data']['created_at']  #Change the output by modifying here
+        json_data[num]['created_at'] = item['data']['created_at']  # Change the output by modifying here
         json_data[num]['updated_at'] = item['data']['updated_at']
         json_data[num]['closed_at'] = item['data']['closed_at']
         json_data[num]['state'] = item['data']['state']
         json_data[num]['comments'] = []
         for c in item['data']['comments_data']:
-            json_data[num]['comments'].append({'user': c['user']['login'],'created_at': c['created_at']})
+            json_data[num]['comments'].append({'user': c['user']['login'], 'created_at': c['created_at']})
 
     with open(json_fn, 'w') as f:
         json.dump(json_data, f, indent=4)
     print("Saved issues to " + json_fn)
+
 
 # def save_gitlab_issue2json(json_fn:str, owner:str, repository:str) -> None:
 #     repo = GitLab(
@@ -71,18 +69,18 @@ def save_issue2json(json_fn:str, owner:str, repository:str) -> None:
 
 if __name__ == "__main__":
 
-  owner=['NLPchina+Word2VEC_java','chaoss+wg-risk','michaelliao+learn-python3','lydiahallie+javascript-questions']#item name
-  nowtime=datetime.datetime.now().strftime('%Y-%m-%d-%H')
-  for i in owner:
-     demt=i.split('+')
-     username=demt[0]
-     projectname=demt[1]
-     save_issue2json(
-        json_fn='./commit_issue/'+username+'&'+projectname+'&'+'issue'+'&'+nowtime+'.json',
-        owner=username,
-        repository= projectname
-    )
-
+    owner = ['NLPchina+Word2VEC_java', 'chaoss+wg-risk', 'michaelliao+learn-python3',
+             'lydiahallie+javascript-questions']  # item name
+    nowtime = datetime.datetime.now().strftime('%Y-%m-%d-%H')
+    for i in owner:
+        demt = i.split('+')
+        username = demt[0]
+        projectname = demt[1]
+        save_issue2json(
+            json_fn='./commit_issue/' + username + '&' + projectname + '&' + 'issue' + '&' + nowtime + '.json',
+            owner=username,
+            repository=projectname
+        )
 
     # NLPchina / Word2VEC_java
 

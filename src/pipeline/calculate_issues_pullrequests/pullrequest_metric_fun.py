@@ -1,16 +1,17 @@
-import json
-from dateutil.parser import parse
-from collections import Counter
-from numpy import *
 import datetime
+import json
+from collections import Counter
+
+from dateutil.parser import parse
+from numpy import *
 
 
 # The number of new pullrequest per month
 # object:project
 # input:json.path
 # output:The number of new pullrequest per month
-def pullrequest_created_permounth(json_fn:str):
-    f = open(json_fn,'r')
+def pullrequest_created_permounth(json_fn: str):
+    f = open(json_fn, 'r')
     json_data = json.load(f)
     datelist = []
     for num in json_data:
@@ -28,7 +29,7 @@ def pullrequest_created_permounth(json_fn:str):
 # object:project
 # input:json.path
 # output:The number of ongoing pullrequest
-def running_pullrequest_num(json_fn:str):
+def running_pullrequest_num(json_fn: str):
     f = open(json_fn, 'r')
     json_data = json.load(f)
     statelist = []
@@ -44,7 +45,7 @@ def running_pullrequest_num(json_fn:str):
 # object:project
 # input:json.path
 # output:The number of pullrequest opened and closed per user per month
-def user_open_close_permonth(json_fn:str):
+def user_open_close_permonth(json_fn: str):
     f = open(json_fn, 'r')
     json_data = json.load(f)
     userlist = []
@@ -57,18 +58,18 @@ def user_open_close_permonth(json_fn:str):
         year_month = year + '-' + month
         datelist.append(year_month)
         statelist.append(json_data[num]['state'])
-    user_state_list = list(zip(datelist, userlist, statelist ))
+    user_state_list = list(zip(datelist, userlist, statelist))
     user_state_result = Counter(user_state_list)
     list1 = user_state_result.most_common(len(user_state_list))
     order_result = sorted(list1, key=(lambda x: [x[0]]))  # sorted list
-    return (order_result)   #(year-month,someone,open/close,num)
+    return (order_result)  # (year-month,someone,open/close,num)
 
 
 # Active developer-user per month
 # object:project
 # input:json.path,year-month
-#output:active user
-def active_user(json_fn:str,y_m:str):   # y_m:xxxx-xx
+# output:active user
+def active_user(json_fn: str, y_m: str):  # y_m:xxxx-xx
     f = open(json_fn, 'r')
     json_data = json.load(f)
     datelist = []
@@ -84,9 +85,9 @@ def active_user(json_fn:str,y_m:str):   # y_m:xxxx-xx
     a = len(datelist)
     b = len(set(userlist))
     if a != 0:
-        avg = a/b
+        avg = a / b
     for i in userlist:
-        if userlist.count(i)>avg:
+        if userlist.count(i) > avg:
             aclist.append(i)
     result = set(aclist)
     if result:
@@ -98,8 +99,8 @@ def active_user(json_fn:str,y_m:str):   # y_m:xxxx-xx
 # Active developer-reviewer per month
 # object:project
 # input:json.path,year-month
-#output:active reviewer
-def active_reviewer(json_fn:str,y_m):   # y_m:xxxx-xx
+# output:active reviewer
+def active_reviewer(json_fn: str, y_m):  # y_m:xxxx-xx
     f = open(json_fn, 'r')
     json_data = json.load(f)
     datelist = []
@@ -117,9 +118,9 @@ def active_reviewer(json_fn:str,y_m):   # y_m:xxxx-xx
     a = len(userlist)
     b = len(set(userlist))
     if a != 0:
-        avg = a/b
+        avg = a / b
     for i in userlist:
-        if userlist.count(i)>avg:
+        if userlist.count(i) > avg:
             aclist.append(i)
     result = set(aclist)
     if result:
@@ -132,7 +133,7 @@ def active_reviewer(json_fn:str,y_m):   # y_m:xxxx-xx
 # object:project
 # input:json.path,year-month
 # output:overloaded users
-def overloaded_user(json_fn:str,y_m):
+def overloaded_user(json_fn: str, y_m):
     f = open(json_fn, 'r')
     json_data = json.load(f)
     datelist = []
@@ -154,50 +155,53 @@ def overloaded_user(json_fn:str,y_m):
     else:
         return None
 
+
 # A list of overloaded reviewers per month
 # object:project
 # input:json.path,year-month
 # output:overloaded reviewers
 def overloaded_reviewer(json_fn: str, y_m):  # y_m:xxxx-xx
-        f = open(json_fn, 'r')
-        json_data = json.load(f)
-        datelist = []
-        userlist = []
-        aclist = []
-        for num in json_data:
-            submitted_at = json_data[num]['submitted_at']
-            if submitted_at:
-                year, month, date = submitted_at.split('-')
-                year_month = year + '-' + month
-                if year_month == y_m:
-                    datelist.append(year_month)
-                    for c in json_data[num]['reviewer']:
-                        userlist.append(c['user'])
-        for i in userlist:
-            if userlist.count(i) >= 20:
-                aclist.append(i)
-        result = set(aclist)
-        if result:
-            return (result)
-        else:
-            return None
+    f = open(json_fn, 'r')
+    json_data = json.load(f)
+    datelist = []
+    userlist = []
+    aclist = []
+    for num in json_data:
+        submitted_at = json_data[num]['submitted_at']
+        if submitted_at:
+            year, month, date = submitted_at.split('-')
+            year_month = year + '-' + month
+            if year_month == y_m:
+                datelist.append(year_month)
+                for c in json_data[num]['reviewer']:
+                    userlist.append(c['user'])
+    for i in userlist:
+        if userlist.count(i) >= 20:
+            aclist.append(i)
+    result = set(aclist)
+    if result:
+        return (result)
+    else:
+        return None
 
 
 # The number of long running pullrequests
 # object:project
 # input:json.path
 # output:The number of long running pullrequests
-def long_running_pr(json_fn:str):
+def long_running_pr(json_fn: str):
     f = open(json_fn, 'r')
     json_data = json.load(f)
     close_datelist = []
     create_datelist = []
+
     # Find two time difference: time2-time1
     def get_timediff(time1, time2):
         a = parse(time1)
         b = parse(time2)
         timediff = (b - a).days
         return timediff
+
     for num in json_data:
         if json_data[num]['closed_at'] == None:
             close_at = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -219,7 +223,7 @@ def long_running_pr(json_fn:str):
 # object:pellrequest
 # input:json.path
 # output:Average loss time
-def avg_loss_time(json_fn:str):
+def avg_loss_time(json_fn: str):
     i = 0
     sum = 0
     f = open(json_fn, 'r')
@@ -246,7 +250,7 @@ def avg_loss_time(json_fn:str):
 # object:project
 # input:json.path
 # output:The number of pullrequests that were merged without approval
-def unapproved_merged_pr(json_fn:str):
+def unapproved_merged_pr(json_fn: str):
     f = open(json_fn, 'r')
     json_data = json.load(f)
     np_merged = []
@@ -263,7 +267,7 @@ def unapproved_merged_pr(json_fn:str):
 # object:pullrequest
 # input:json.path
 # output:The number of times
-def user_reviewer_times(json_fn:str):
+def user_reviewer_times(json_fn: str):
     f = open(json_fn, 'r')
     json_data = json.load(f)
     numberlist = []
@@ -282,7 +286,7 @@ def user_reviewer_times(json_fn:str):
 # object:pullrequest
 # input:json.path
 # output:The number of reviewers / no
-def whether_many_reviewers(json_fn:str):
+def whether_many_reviewers(json_fn: str):
     f = open(json_fn, 'r')
     json_data = json.load(f)
     answerlist = []
@@ -306,7 +310,7 @@ def whether_many_reviewers(json_fn:str):
 # object:pullrequest
 # input:json.path
 # output:The number of comments
-def comments_num(json_fn:str):
+def comments_num(json_fn: str):
     f = open(json_fn, 'r')
     json_data = json.load(f)
     numlist = []
@@ -325,7 +329,7 @@ def comments_num(json_fn:str):
 # object:pullrequest
 # input:json.path
 # output:The duration of the review cycle
-def review_cycle(json_fn:str):
+def review_cycle(json_fn: str):
     f = open(json_fn, 'r')
     json_data = json.load(f)
     timedifflist = []
@@ -356,7 +360,7 @@ def review_cycle(json_fn:str):
 # object:pullrequest
 # input:json.path
 # output:The time between creation and first review
-def create2review_time(json_fn:str):
+def create2review_time(json_fn: str):
     f = open(json_fn, 'r')
     json_data = json.load(f)
     timedifflist = []
@@ -371,7 +375,7 @@ def create2review_time(json_fn:str):
             t = temp[1].split('Z')
             memp = created_at.split('T')
             m = memp[1].split('Z')
-            dt1 = datetime.datetime.strptime(temp[0] + ' ' + t[0],'%Y-%m-%d %H:%M:%S')
+            dt1 = datetime.datetime.strptime(temp[0] + ' ' + t[0], '%Y-%m-%d %H:%M:%S')
             dt2 = datetime.datetime.strptime(memp[0] + ' ' + m[0], '%Y-%m-%d %H:%M:%S')
             timediff = str(dt1 - dt2)
             timedifflist.append(timediff)
@@ -384,7 +388,7 @@ def create2review_time(json_fn:str):
 
 
 if __name__ == "__main__":
-    json_fn = './commit_issue/****.json'  #json file name
-   # y_m = '2020-06'
+    json_fn = './commit_issue/****.json'  # json file name
+    # y_m = '2020-06'
     result = running_pullrequest_num(json_fn)
     print(result)

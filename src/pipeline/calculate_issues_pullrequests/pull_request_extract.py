@@ -1,24 +1,22 @@
 import os
+
 os.environ["GIT_PYTHON_REFRESH"] = "quiet"
 import datetime
 import json
-import re
-from git import Repo
-from git.objects import commit
 from perceval.backends.core.github import GitHub
-from perceval.backends.core.gitlab import GitLab
+
 
 # Get the data about pullrequest
 def save_pull_requests2json(json_fn: str, owner: str, repository: str) -> None:
-
     repo = GitHub(
         owner=owner,
         repository=repository,
-        api_token=[""],  #put your github token here
+        api_token=[""],  # put your github token here
         sleep_for_rate=True)
     json_data = {}
 
-    for item in repo.fetch(category="pull_request"): #if it is necessary,you need to change the parameter define in github.py
+    for item in repo.fetch(
+            category="pull_request"):  # if it is necessary,you need to change the parameter define in github.py
         # if 'pull_request' in item['data']:
         #     kind = 'Pull request'
         # else:
@@ -44,7 +42,7 @@ def save_pull_requests2json(json_fn: str, owner: str, repository: str) -> None:
         json_data[num]['comments_num'] = item['data']['comments']
         json_data[num]['approve_state'] = []
         if item['data']['reviews_data']:
-            json_data[num]['approve_state']='approve'
+            json_data[num]['approve_state'] = 'approve'
         else:
             json_data[num]['approve_state'] = 'not approve'
         json_data[num]['review_times'] = item['data']['review_comments']
@@ -56,6 +54,7 @@ def save_pull_requests2json(json_fn: str, owner: str, repository: str) -> None:
     with open(json_fn, 'w') as f:
         json.dump(json_data, f, indent=4)
     print("Saved pull_requests to " + json_fn)
+
 
 # def save_gitlab_pull_request2json(json_fn: str, owner: str, repository: str) -> None:
 #         repo = GitLab(
@@ -89,16 +88,16 @@ def save_pull_requests2json(json_fn: str, owner: str, repository: str) -> None:
 
 if __name__ == "__main__":
 
-    owner = ['NLPchina+Word2VEC_java', 'lvandeve+lodepng', 'socketio+socket.io-client-cpp']  #item name
+    owner = ['NLPchina+Word2VEC_java', 'lvandeve+lodepng', 'socketio+socket.io-client-cpp']  # item name
     nowtime = datetime.datetime.now().strftime('%Y-%m-%d-%H')
     for i in owner:
         demt = i.split('+')
         username = demt[0]
         projectname = demt[1]
         save_pull_requests2json(
-             json_fn='./commit_issue/' + username + '&' + projectname + '&' + 'pq' + '&' + nowtime + '.json',
-             owner=username,
-             repository=projectname
+            json_fn='./commit_issue/' + username + '&' + projectname + '&' + 'pq' + '&' + nowtime + '.json',
+            owner=username,
+            repository=projectname
         )
         # NLPchina / Word2VEC_java
 
