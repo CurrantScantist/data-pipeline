@@ -187,24 +187,17 @@ def issue_closed_avg(json_sn: str):
 
 
 if __name__ == "__main__":
-    json_fn = './commit_issue/*****.json'  # json file name
-    # result=issues_created_permonth(json_fn)
-    # print(result)
+    json_fn = 'michaelliao&learn-python3&issue&2021-09-05-17.json'  # json file name
 
-    # result = issues_updated_permonth(json_fn)
-    # print(result)
+    data = {
+        "issues_created_permonth": issues_created_permonth(json_fn),
+        "issues_updated_permonth": issues_updated_permonth(json_fn),
+        "issues_closed_permonth": issues_closed_permonth(json_fn),
+        "issue_unresolved_duration": issue_unresolved_duration(json_fn),
+        "issue_beresponded_duration": issue_beresponded_duration(json_fn),
+        "issue_closed_howtime": issue_closed_howtime(json_fn),
+        "issue_closed_avg": issue_closed_avg(json_fn)
+    }
 
-    # result=issues_closed_permonth(json_fn)
-    # print(result)
-
-    # result=issue_unresolved_duration(json_fn)
-    # print(result)
-
-    # result=issue_beresponded_duration(json_fn)
-    # print(result)
-    #
-    # result=issue_closed_howtime(json_fn)
-    # print(result)
-
-    avg = issue_closed_avg(json_fn)
-    print(avg)
+    with open('results.json', 'w') as file:
+        json.dump(data, file, indent=4)
