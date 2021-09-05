@@ -1,6 +1,7 @@
 import datetime
 import json
 from collections import Counter
+from datetime import datetime, timedelta, timezone
 
 
 # The number of created issues per month(object:item)
@@ -183,19 +184,57 @@ def get_avg_time_to_solve_issues(json_sn: str):
     return avg
 
 
+def date_span(start_date, end_date, delta=timedelta(weeks=1)):
+    current_date = start_date
+    while current_date < end_date:
+        new_date = current_date + delta
+        yield current_date, new_date
+        current_date = new_date
+
+
+def get_open_issues_per_week(issues):
+    start_date = datetime.now(timezone.utc) - timedelta(weeks=80)
+    end_date = datetime.now(timezone.utc)
+
+    date_format = "%Y-%m-%dT%H:%M:%S%z"
+    results = []
+
+    for start_of_week, end_of_week in date_span(start_date, end_date):
+        num_open_issues = 0
+        for issue in issues.values():
+            if issue["created_at"] is None:
+                continue
+            open_date = datetime.strptime(issue["created_at"], date_format)
+            if open_date < start_of_week:
+                if issue["state"] == "open":
+                    num_open_issues += 1
+                else:
+                    closed_date = datetime.strptime(issue["closed_at"], date_format)
+                    if closed_date > end_of_week:
+                        num_open_issues += 1
+
+        results.append({
+            "start": start_of_week.strftime('%Y-%m-%d-%H'),
+            "end": end_of_week.strftime('%Y-%m-%d-%H'),
+            "open_issues": num_open_issues
+        })
+    return results
+
+
 if __name__ == "__main__":
     json_fn = 'michaelliao&learn-python3&issue&2021-09-05-17.json'  # json file name
     with open(json_fn, 'r') as file:
         issues = json.load(file)
 
     data = {
-        "issues_created_per_month": get_issues_created_per_month(json_fn),
-        "issues_updated_per_month": get_issues_updated_per_month(json_fn),
-        "issues_closed_per_month": get_issues_closed_per_month(json_fn),
-        "issue_unresolved_duration": get_issue_unresolved_duration(json_fn),
-        "issue_be_responded_duration": get_issue_be_responded_duration(json_fn),
-        "closed_issues_duration_open": get_closed_issues_duration_open(json_fn),
-        "avg_time_to_solve_issues": get_avg_time_to_solve_issues(json_fn)
+        # "issues_created_per_month": get_issues_created_per_month(issues),
+        # "issues_updated_per_month": get_issues_updated_per_month(json_fn),
+        # "issues_closed_per_month": get_issues_closed_per_month(json_fn),
+        # "issue_unresolved_duration": get_issue_unresolved_duration(json_fn),
+        # "issue_be_responded_duration": get_issue_be_responded_duration(json_fn),
+        # "closed_issues_duration_open": get_closed_issues_duration_open(json_fn),
+        # "avg_time_to_solve_issues": get_avg_time_to_solve_issues(json_fn)
+        "num_open_issues_per_week": get_open_issues_per_week(issues)
     }
 
     with open('results.json', 'w') as file:
