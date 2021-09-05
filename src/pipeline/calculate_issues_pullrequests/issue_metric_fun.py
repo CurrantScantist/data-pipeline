@@ -6,20 +6,20 @@ from collections import Counter
 # The number of created issues per month(object:item)
 # input:json.path
 # output:the number of new issues per month(as list)
-def get_issues_created_per_month(json_fn: str):
-    f = open(json_fn, 'r')
-    data = json.load(f)
-    res = []
-    for num in data:
-        created_at = data[num]['created_at']  # get data from jsonfiles
-        if created_at == None: continue  # judge state
+def get_issues_created_per_month(issues: dict):
+    results = []
+    for num in issues:
+        created_at = issues[num]['created_at']  # get data from jsonfiles
+        if created_at is None:
+            continue
         temp = created_at.split('T')
         m = temp[0].split('-')  # split into year-month-day
-        res.append(m[0] + m[1])  # store into the list
-    result = Counter(res)
-    list = result.most_common(len(result))  # counter change into list
-    order_result = sorted(list, key=(lambda x: [x[0]]))  # sorted list
-    return (order_result)
+        results.append(m[0] + '-' + m[1])  # store into the list
+
+    result = Counter(results)
+    result_list = result.most_common()  # counter change into list
+    order_result = sorted(result_list, key=(lambda x: [x[0]]))  # sorted list
+    return order_result
 
 
 # The number of updated issues per month(object:item)
@@ -31,14 +31,15 @@ def get_issues_updated_per_month(json_fn: str):
     res = []
     for num in data:
         updated_at = data[num]['updated_at']  # get data from jsonfiles
-        if updated_at == None: continue  # judge state
+        if updated_at is None:
+            continue  # judge state
         temp = updated_at.split('T')
         m = temp[0].split('-')  # split into year-month-day
         res.append(m[0] + m[1])  # store into the list
     result = Counter(res)
     list = result.most_common(len(result))  # counter change into list
     order_result = sorted(list, key=(lambda x: [x[0]]))  # sorted list
-    return (order_result)
+    return order_result
 
 
 # The number of closed issues per month(object:item)
@@ -50,14 +51,15 @@ def get_issues_closed_per_month(json_fn: str):
     res = []
     for num in data:
         closed_at = data[num]['closed_at']  # get data from jsonfiles
-        if closed_at == None: continue  # judge state
+        if closed_at is None:
+            continue  # judge state
         temp = closed_at.split('T')
         m = temp[0].split('-')  # split into year-month-day
         res.append(m[0] + m[1])  # store into the list
     result = Counter(res)
     list = result.most_common(len(result))  # counter change into list
     order_result = sorted(list, key=(lambda x: [x[0]]))  # sorted list
-    return (order_result)
+    return order_result
 
 
 # How long have open issues been left open?(object:issues)
@@ -72,7 +74,7 @@ def get_issue_unresolved_duration(json_fn: str):
     for num in data:
         created_at = data[num]['created_at']
         closed_at = data[num]['closed_at']
-        if closed_at == None:
+        if closed_at is None:
             temp = created_at.split('T')
             res.append(temp[0])
             number = str(num)
@@ -87,7 +89,7 @@ def get_issue_unresolved_duration(json_fn: str):
         delaytime.append(delay_temp[0])
     duration = list(zip(numbers, delaytime))
     order_duration = sorted(duration, key=(lambda x: [x[0]]))  # sorted list
-    return (order_duration)
+    return order_duration
 
 
 # How long does it take for another contributor to respond(object:issues)
@@ -106,7 +108,7 @@ def get_issue_be_responded_duration(json_fn: str):
         t = temp[1].split('Z')
         number = str(num)
         numberlist.append(number)  # get the id of issue
-        if comments == []:
+        if not comments:
             value.append('null')
         for c in comments:
             comments_user = c['user']
@@ -123,7 +125,7 @@ def get_issue_be_responded_duration(json_fn: str):
     numbers = list(map(int, numberlist))
     duration = list(zip(numbers, value))
     order_duration = sorted(duration, key=(lambda x: [x[0]]))
-    return (order_duration)  # 输出数组（id+返回值：时间/null）
+    return order_duration  # 输出数组（id+返回值：时间/null）
 
 
 # How long will it take to solve the issue(object:issues)
@@ -139,7 +141,7 @@ def get_closed_issues_duration_open(json_fn: str):
         closed_at = data[num]['closed_at']
         number = str(num)
         numberlist.append(number)  # get the id of issue
-        if closed_at == None:
+        if closed_at is None:
             value.append('null')
             continue
         temp = created_at.split('T')
@@ -152,7 +154,7 @@ def get_closed_issues_duration_open(json_fn: str):
     numbers = list(map(int, numberlist))
     time_to_close = list(zip(numbers, value))
     order = sorted(time_to_close, key=(lambda x: [x[0]]))
-    return (order)
+    return order
 
 
 # average time to solve issus(object:item)
@@ -166,7 +168,7 @@ def get_avg_time_to_solve_issues(json_sn: str):
     for num in data:
         created_at = data[num]['created_at']
         closed_at = data[num]['closed_at']
-        if closed_at == None:
+        if closed_at is None:
             continue
         temp = created_at.split('T')
         t = temp[1].split('Z')
@@ -176,13 +178,15 @@ def get_avg_time_to_solve_issues(json_sn: str):
         dt2 = datetime.datetime.strptime(memp[0] + ' ' + m[0], '%Y-%m-%d %H:%M:%S')
         i = i + 1
         issue_closed_time = dt2 - dt1
-        sum = issue_closed_time.seconds + sum
+        sum += issue_closed_time.seconds
     avg = int(sum / i / 3600)
-    return (avg)
+    return avg
 
 
 if __name__ == "__main__":
     json_fn = 'michaelliao&learn-python3&issue&2021-09-05-17.json'  # json file name
+    with open(json_fn, 'r') as file:
+        issues = json.load(file)
 
     data = {
         "issues_created_per_month": get_issues_created_per_month(json_fn),
