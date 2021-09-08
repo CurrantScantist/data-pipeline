@@ -41,10 +41,9 @@ def issue_is_open_in_week(issue, start_of_week, end_of_week, date_format="%Y-%m-
     if open_date < start_of_week:
         if issue["state"] == "open":
             return True
-        else:
-            closed_date = datetime.strptime(issue["closed_at"], date_format)
-            if closed_date > end_of_week:
-                return True
+        closed_date = datetime.strptime(issue["closed_at"], date_format)
+        if closed_date > end_of_week:
+            return True
     return False
 
 

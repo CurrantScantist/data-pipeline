@@ -13,8 +13,8 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 from tqdm.auto import tqdm
 
-from .sca_helpers import *
-from .exceptions import *
+from .sca_helpers import collect_scantist_sca_data
+from .exceptions import HTTPError, RemoteRepoNotFoundError, InvalidArgumentError
 from .generate_heatmap_data import generate_heatmap_data, push_heatmap_data_to_mongodb
 
 load_dotenv()
@@ -441,68 +441,66 @@ def process_repository(repo_str):
     # tqdm.write('Collecting SCA data')
     # collect_scantist_sca_data(REPOS_DIR, repo_path)
 
-    # exit(0)
-
-    data["num_tags"] = len(tags)
-    if len(tags) > 0:
-        data["latest_tag"] = tags[-1].name
-    else:
-        data["latest_tag"] = None
-
-    # reducing the number of tags
-    tags = reduce_releases(tags, max_releases=30)
-    tqdm.write(f"number of tags reduced to: {len(tags)}")
-
-    # get the mongoDB client
-    mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
-
-    g = git.Git(repo_path)  # initialise git in order to checkout each tag
-    tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
-
-    for tag in tag_loop:
-        continue
-        tag_name = tag.name
-        tag_loop.set_description(f"processing tag: {tag}")
-        tag_loop.refresh()
-
-        tqdm.write(f"checking out tag: {tag}")
-        g.checkout(tag_name)
-
-        tqdm.write(f"counting LOC for tag: {tag}")
-        # calling the 'cloc' command line tool to count LOC statistics for the repository
-        tag_data = call_cloc(repo_path)  # this data can possibly be used later on
-
-        tqdm.write("pushing to mongodb...")
-        push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
-
-        # Triggering Scantist SCA scan
-        # tqdm.write("Triggering Scantist SCA scan")
-        # sca_data = call_scantist_SCA(repo_path, bom_detector_path)
-        # tqdm.write("Pushing Scantist SCA data to mongodb")
-        # push_scantist_sca_data_to_mongodb(repo_owner, repo_name, tag_name, sca_data, mongo_client)
-
-    tqdm.write("Triggering Scantist SCA scan for the most recent release")
-    g.checkout(tags[-1])
-    try:
-        sca_data = call_scantist_SCA(repo_path, bom_detector_path)
-        push_scantist_sca_data_to_mongodb(repo_owner, repo_name, tags[-1].name, sca_data, mongo_client)
-
-        # add SCA data to the metadata
-        data["num_vulnerabilities"] = len(sca_data["vulnerabilities"])
-        data["num_components"] = len(sca_data["components"])
-        data["vulnerability_breakdown"] = sca_data["issue_breakdown"]
-    except FileNotFoundError:
-        tqdm.write("Scantist SCA could not find the required dependency information")
-        data["num_vulnerabilities"] = -1
-        data["num_components"] = -1
-        data["vulnerability_breakdown"] = {}
-
-    # push the repository data to mongoDB
-    tqdm.write("Pushing repository data to mongoDB")
-    push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
-
-    tqdm.write("deleting local repository...")
-
-    repo.close()
-    time.sleep(2)  # to wait for the previous git related processes to release the repository
-    clean_up_repo(repo_name)
+    # data["num_tags"] = len(tags)
+    # if len(tags) > 0:
+    #     data["latest_tag"] = tags[-1].name
+    # else:
+    #     data["latest_tag"] = None
+    #
+    # # reducing the number of tags
+    # tags = reduce_releases(tags, max_releases=30)
+    # tqdm.write(f"number of tags reduced to: {len(tags)}")
+    #
+    # # get the mongoDB client
+    # mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+    #
+    # g = git.Git(repo_path)  # initialise git in order to checkout each tag
+    # tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
+    #
+    # for tag in tag_loop:
+    #     continue
+    #     tag_name = tag.name
+    #     tag_loop.set_description(f"processing tag: {tag}")
+    #     tag_loop.refresh()
+    #
+    #     tqdm.write(f"checking out tag: {tag}")
+    #     g.checkout(tag_name)
+    #
+    #     tqdm.write(f"counting LOC for tag: {tag}")
+    #     # calling the 'cloc' command line tool to count LOC statistics for the repository
+    #     tag_data = call_cloc(repo_path)  # this data can possibly be used later on
+    #
+    #     tqdm.write("pushing to mongodb...")
+    #     push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
+    #
+    #     # Triggering Scantist SCA scan
+    #     # tqdm.write("Triggering Scantist SCA scan")
+    #     # sca_data = call_scantist_SCA(repo_path, bom_detector_path)
+    #     # tqdm.write("Pushing Scantist SCA data to mongodb")
+    #     # push_scantist_sca_data_to_mongodb(repo_owner, repo_name, tag_name, sca_data, mongo_client)
+    #
+    # tqdm.write("Triggering Scantist SCA scan for the most recent release")
+    # g.checkout(tags[-1])
+    # try:
+    #     sca_data = call_scantist_SCA(repo_path, bom_detector_path)
+    #     push_scantist_sca_data_to_mongodb(repo_owner, repo_name, tags[-1].name, sca_data, mongo_client)
+    #
+    #     # add SCA data to the metadata
+    #     data["num_vulnerabilities"] = len(sca_data["vulnerabilities"])
+    #     data["num_components"] = len(sca_data["components"])
+    #     data["vulnerability_breakdown"] = sca_data["issue_breakdown"]
+    # except FileNotFoundError:
+    #     tqdm.write("Scantist SCA could not find the required dependency information")
+    #     data["num_vulnerabilities"] = -1
+    #     data["num_components"] = -1
+    #     data["vulnerability_breakdown"] = {}
+    #
+    # # push the repository data to mongoDB
+    # tqdm.write("Pushing repository data to mongoDB")
+    # push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
+    #
+    # tqdm.write("deleting local repository...")
+    #
+    # repo.close()
+    # time.sleep(2)  # to wait for the previous git related processes to release the repository
+    # clean_up_repo(repo_name)
