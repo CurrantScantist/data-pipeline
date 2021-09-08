@@ -15,6 +15,7 @@ from tqdm.auto import tqdm
 
 from .sca_helpers import *
 from .exceptions import *
+from .generate_heatmap_data import *
 
 load_dotenv()
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
@@ -418,10 +419,18 @@ def process_repository(repo_str):
     # with open("test.json", "w") as file:
     #     file.write(json.dumps(test))
 
-    monthtest = get_monthly_commit_data(repo)
+    # monthtest = get_monthly_commit_data(repo)
 
-    with open("monthtest.json", "w") as file:
-        file.write(json.dumps(monthtest))
+    heatmap_data = {
+        "data": generate_heatmap_data(repo_owner, repo_name, repo)
+    }
+    with open(f"heatmap_data_for_{repo_owner}_{repo_name}", 'w') as file:
+        json.dump(heatmap_data, file, indent=4)
+
+    exit(0)
+
+    # with open("monthtest.json", "w") as file:
+    #     file.write(json.dumps(monthtest))
     # data["commits_per_author"] = get_commits_per_author(repo)
     # data["num_commits"] = data["commits_per_author"]["all_time"]["total"]
     exit(0)
