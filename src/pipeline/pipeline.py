@@ -15,7 +15,7 @@ from tqdm.auto import tqdm
 
 from .sca_helpers import *
 from .exceptions import *
-from .generate_heatmap_data import *
+from .generate_heatmap_data import generate_heatmap_data, push_heatmap_data_to_mongodb
 
 load_dotenv()
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
