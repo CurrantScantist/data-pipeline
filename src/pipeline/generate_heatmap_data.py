@@ -257,3 +257,22 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, dimensions=(19, 
         results.append(obj)
 
     return results[::-1]
+
+
+def push_heatmap_data_to_mongodb(repo_owner, repo_name, data, client):
+    """
+    Pushes the repository heatmap data to the mongoDB database
+    :param repo_owner: the owner of the repository. Eg, 'facebook'
+    :param repo_name: the name of the repository. Eg, 'react'
+    :param data: the heatmap for the repository (list of dicts)
+    :param client: the MongoDB client
+    :return: None
+    """
+    db = client['test_db']
+    repo_collection = db['repositories']
+
+    search_dict = {
+        "name": repo_name,
+        "owner": repo_owner
+    }
+    repo_collection.update_one(search_dict, {'$set': {'heatmap_data': data}}, upsert=True)
