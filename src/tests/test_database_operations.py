@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 from src.pipeline import pipeline
+from src.pipeline import generate_heatmap_data
 
 
 def test_repository_name_validation():
@@ -55,3 +56,8 @@ def test_pushing_release_data_to_db():
          },
         upsert=True
     )
+
+
+def test_push_heatmap_data_to_mongodb():
+    # TODO
+    pass
