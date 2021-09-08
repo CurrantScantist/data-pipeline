@@ -1,9 +1,9 @@
 import json
-from datetime import datetime, timedelta, timezone
 import os
+from datetime import datetime, timedelta, timezone
 
-from perceval.backends.core.github import GitHub
 from dotenv import load_dotenv
+from perceval.backends.core.github import GitHub
 from tqdm import tqdm
 
 load_dotenv()
@@ -97,7 +97,7 @@ def retrieve_issues(repo, num_weeks):
 
     for item in tqdm(
             repo.fetch(from_date=cut_off_date, to_date=current_date, category="issue"),
-            desc="fetching repository data"):
+            desc="fetching issue data"):
 
         num = item['data']['number']
         json_data[num] = {}
@@ -128,7 +128,7 @@ def retrieve_pull_requests(repo, num_weeks):
 
     for item in tqdm(
             repo.fetch(from_date=cut_off_date, to_date=current_date, category="pull_request"),
-            desc="fetching repository data"):
+            desc="fetching pull request data"):
 
         if 'pull_request' in item['data']:
             print("the random if statement is actually triggering")
@@ -216,10 +216,15 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, dimensions=(19, 
     commits = retrieve_commits(repo_instance)
 
     for start_of_week, end_of_week in date_span(start_date, end_date):
+        index = num_weeks - len(results) - 1
         obj = {
-            "week": num_weeks - len(results),
+            "week": index,
             "start": start_of_week.strftime('%Y-%m-%d-%H'),
             "end": end_of_week.strftime('%Y-%m-%d-%H'),
+            "coords": {
+                "x": index // dimensions[1],
+                "y": index % dimensions[1]
+            },
             "issues": {
                 "open": 0
             },
@@ -252,29 +257,3 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, dimensions=(19, 
         results.append(obj)
 
     return results[::-1]
-
-
-if __name__ == '__main__':
-
-    file_name = r"C:\Users\jackw\Documents\GitHub\data-pipeline\heatmap_data_for_socketio_socket.io-client-cpp.json"
-
-    with open(file_name, 'r') as file:
-        data = json.load(file)
-
-    new_data_array = []
-
-    for obj in data["data"]:
-        obj["week"] = obj["week"] - 1
-        obj["coords"] = {
-            "x": obj["week"]//8,
-            "y": obj["week"] % 8,
-        }
-        new_data_array.append(obj)
-
-    new_data = {
-        "data": new_data_array
-    }
-
-    with open("new_file.json", 'w') as file:
-        json.dump(new_data, file, indent=4)
-
