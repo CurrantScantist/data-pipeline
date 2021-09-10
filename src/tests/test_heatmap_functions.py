@@ -13,15 +13,15 @@ def test_date_span():
 
 
 def test_issue_is_open_in_week_true():
-    format = "%Y-%m-%dT%H:%M:%S%z"
+    str_format = "%Y-%m-%dT%H:%M:%S%z"
     issue = {
         "created_at": "2020-01-02T12:00:00Z",
         "state": "closed",
         "closed_at": "2020-01-15T12:00:00Z"
     }
 
-    start = datetime.datetime.strptime("2020-01-04T12:00:00Z", format)
-    end = datetime.datetime.strptime("2020-01-12T12:00:00Z", format)
+    start = datetime.datetime.strptime("2020-01-04T12:00:00Z", str_format)
+    end = datetime.datetime.strptime("2020-01-12T12:00:00Z", str_format)
     assert generate_heatmap_data.issue_is_open_in_week(issue, start, end)
 
     issue["state"] = "open"
@@ -30,15 +30,15 @@ def test_issue_is_open_in_week_true():
 
 
 def test_issue_is_open_in_week_false():
-    format = "%Y-%m-%dT%H:%M:%S%z"
+    str_format = "%Y-%m-%dT%H:%M:%S%z"
     issue = {
         "created_at": "2020-01-02T12:00:00Z",
         "state": "closed",
         "closed_at": "2020-01-10T12:00:00Z"
     }
 
-    start = datetime.datetime.strptime("2020-01-04T12:00:00Z", format)
-    end = datetime.datetime.strptime("2020-01-12T12:00:00Z", format)
+    start = datetime.datetime.strptime("2020-01-04T12:00:00Z", str_format)
+    end = datetime.datetime.strptime("2020-01-12T12:00:00Z", str_format)
     assert not generate_heatmap_data.issue_is_open_in_week(issue, start, end)
 
     issue["state"] = "open"
