@@ -147,8 +147,9 @@ def retrieve_pull_requests(repo, num_weeks):
             for c in item['data']['reviews_data']:
                 if json_data[num]['submitted_at']:
                     continue
-                if c['user_data']['login'] != json_data[num]['user']:
-                    json_data[num]['submitted_at'] = c['submitted_at']
+                if c['user_data']:
+                    if c['user_data']['login'] != json_data[num]['user']:
+                        json_data[num]['submitted_at'] = c['submitted_at']
         json_data[num]['merged'] = item['data']['merged']
         json_data[num]['merged_at'] = item['data']['merged_at']
         json_data[num]['comments_num'] = item['data']['comments']
@@ -161,7 +162,8 @@ def retrieve_pull_requests(repo, num_weeks):
         json_data[num]['reviewer'] = []
         if item['data']['reviews_data']:
             for c in item['data']['reviews_data']:
-                json_data[num]['reviewer'].append({'user': c['user_data']['login']})
+                if c['user_data']:
+                    json_data[num]['reviewer'].append({'user': c['user_data']['login']})
 
     tqdm.write("Pull Request data extracted to JSON")
     return json_data
