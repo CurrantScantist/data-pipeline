@@ -139,7 +139,21 @@ def test_retrieve_issues():
 
 
 def test_retrieve_pull_requests():
-    pass
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(current_dir, 'github_pull_request.json'), 'r') as file:
+        pull_requests = json.load(file)["data"]
+
+    pull_requests = [{"data": pr} for pr in pull_requests]
+
+    repo = MagicMock()
+    repo.fetch = MagicMock(return_value=pull_requests)
+
+    with open(os.path.join(current_dir, 'pull_request_results.json'), 'r') as file:
+        expected_data = json.load(file)
+
+    actual_data = generate_heatmap_data.retrieve_pull_requests(repo, 1)
+
+    assert actual_data == expected_data
 
 
 def test_retrieve_commits():

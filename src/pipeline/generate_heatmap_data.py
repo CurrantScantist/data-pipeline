@@ -135,7 +135,7 @@ def retrieve_pull_requests(repo, num_weeks):
                 json.dump(item, file, indent=4)
             continue
 
-        num = item['data']['number']
+        num = str(item['data']['number'])
         json_data[num] = {}
         json_data[num]['title'] = item['data']['title']
         json_data[num]['user'] = item['data']['user']['login']
