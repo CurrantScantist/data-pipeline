@@ -409,98 +409,59 @@ def process_repository(repo_str):
         tqdm.write("cloning repository...")
         repo = clone_repo(repo_owner, repo_name)
 
+    # get the mongoDB client
+    mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+
+    tqdm.write("calculating commits per author data")
+    data['commits_per_author'] = get_commits_per_author(repo)
+
+    tqdm.write("calculating commits per month")
+    data['commits_per_month'] = get_monthly_commit_data(repo)
+
+    heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo)
+    push_heatmap_data_to_mongodb(repo_owner, repo_name, heatmap_data, mongo_client)
+
     # get the tags from the repository
     tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
     tqdm.write(f"There were {len(tags)} tags found in the repository")
 
-    tqdm.write("calculating commit data")
-    # test = get_commits_per_author(repo)
-    #
-    # with open("test.json", "w") as file:
-    #     file.write(json.dumps(test))
-
-    # monthtest = get_monthly_commit_data(repo)
-
-    heatmap_data = {
-        "data": generate_heatmap_data(repo_owner, repo_name, repo)
-    }
-    with open(f"heatmap_data_for_{repo_owner}_{repo_name}", 'w') as file:
-        json.dump(heatmap_data, file, indent=4)
-
-    exit(0)
-
-    # with open("monthtest.json", "w") as file:
-    #     file.write(json.dumps(monthtest))
-    # data["commits_per_author"] = get_commits_per_author(repo)
-    # data["num_commits"] = data["commits_per_author"]["all_time"]["total"]
-    exit(0)
-
-    # exit(0)
     # adding some tag related information to the repository metadata
+    data["num_tags"] = len(tags)
+    if len(tags) > 0:
+        data["latest_tag"] = tags[-1].name
+    else:
+        data["latest_tag"] = None
+
+    # reducing the number of tags
+    tags = reduce_releases(tags, max_releases=30)
+    tqdm.write(f"number of tags reduced to: {len(tags)}")
+
+    g = git.Git(repo_path)  # initialise git in order to checkout each tag
+    tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
+
+    for tag in tag_loop:
+        tag_name = tag.name
+        tag_loop.set_description(f"processing tag: {tag}")
+        tag_loop.refresh()
+
+        tqdm.write(f"checking out tag: {tag}")
+        g.checkout(tag_name)
+
+        tqdm.write(f"counting LOC for tag: {tag}")
+        # calling the 'cloc' command line tool to count LOC statistics for the repository
+        tag_data = call_cloc(repo_path)  # this data can possibly be used later on
+
+        tqdm.write("pushing to mongodb...")
+        push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
+
+    # push the repository data to mongoDB
+    tqdm.write("Pushing repository data to mongoDB")
+    push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
 
     # tqdm.write('Collecting SCA data')
     # collect_scantist_sca_data(REPOS_DIR, repo_path)
 
-    # data["num_tags"] = len(tags)
-    # if len(tags) > 0:
-    #     data["latest_tag"] = tags[-1].name
-    # else:
-    #     data["latest_tag"] = None
-    #
-    # # reducing the number of tags
-    # tags = reduce_releases(tags, max_releases=30)
-    # tqdm.write(f"number of tags reduced to: {len(tags)}")
-    #
-    # # get the mongoDB client
-    # mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
-    #
-    # g = git.Git(repo_path)  # initialise git in order to checkout each tag
-    # tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
-    #
-    # for tag in tag_loop:
-    #     continue
-    #     tag_name = tag.name
-    #     tag_loop.set_description(f"processing tag: {tag}")
-    #     tag_loop.refresh()
-    #
-    #     tqdm.write(f"checking out tag: {tag}")
-    #     g.checkout(tag_name)
-    #
-    #     tqdm.write(f"counting LOC for tag: {tag}")
-    #     # calling the 'cloc' command line tool to count LOC statistics for the repository
-    #     tag_data = call_cloc(repo_path)  # this data can possibly be used later on
-    #
-    #     tqdm.write("pushing to mongodb...")
-    #     push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
-    #
-    #     # Triggering Scantist SCA scan
-    #     # tqdm.write("Triggering Scantist SCA scan")
-    #     # sca_data = call_scantist_SCA(repo_path, bom_detector_path)
-    #     # tqdm.write("Pushing Scantist SCA data to mongodb")
-    #     # push_scantist_sca_data_to_mongodb(repo_owner, repo_name, tag_name, sca_data, mongo_client)
-    #
-    # tqdm.write("Triggering Scantist SCA scan for the most recent release")
-    # g.checkout(tags[-1])
-    # try:
-    #     sca_data = call_scantist_SCA(repo_path, bom_detector_path)
-    #     push_scantist_sca_data_to_mongodb(repo_owner, repo_name, tags[-1].name, sca_data, mongo_client)
-    #
-    #     # add SCA data to the metadata
-    #     data["num_vulnerabilities"] = len(sca_data["vulnerabilities"])
-    #     data["num_components"] = len(sca_data["components"])
-    #     data["vulnerability_breakdown"] = sca_data["issue_breakdown"]
-    # except FileNotFoundError:
-    #     tqdm.write("Scantist SCA could not find the required dependency information")
-    #     data["num_vulnerabilities"] = -1
-    #     data["num_components"] = -1
-    #     data["vulnerability_breakdown"] = {}
-    #
-    # # push the repository data to mongoDB
-    # tqdm.write("Pushing repository data to mongoDB")
-    # push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
-    #
-    # tqdm.write("deleting local repository...")
-    #
-    # repo.close()
-    # time.sleep(2)  # to wait for the previous git related processes to release the repository
-    # clean_up_repo(repo_name)
+    repo.close()
+    time.sleep(2)  # to wait for the previous git related processes to release the repository
+    tqdm.write("deleting local repository...")
+    clean_up_repo(repo_name)
