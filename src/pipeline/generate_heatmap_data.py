@@ -223,7 +223,7 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, dimensions=(19, 
             "start": start_of_week.strftime('%Y-%m-%d-%H'),
             "end": end_of_week.strftime('%Y-%m-%d-%H'),
             "coords": {
-                "x": index // dimensions[1],
+                "x": dimensions[0] - (index // dimensions[1]),
                 "y": index % dimensions[1]
             },
             "issues": {
