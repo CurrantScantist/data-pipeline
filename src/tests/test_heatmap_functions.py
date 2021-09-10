@@ -201,7 +201,7 @@ def test_retrieve_commits():
 
     assert len(expected_result) == len(actual_result)
 
-    for i in range(len(expected_result)):
+    for i, _ in enumerate(expected_result):
         assert expected_result[i]["hexsha"] == actual_result[i].hexsha
         c_date = datetime.datetime.strptime(expected_result[i]["committed_datetime"], date_format)
         assert c_date == actual_result[i].committed_datetime
