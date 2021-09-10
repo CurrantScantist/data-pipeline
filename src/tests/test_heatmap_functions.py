@@ -1,11 +1,9 @@
-import pytest
 import datetime
 from src.pipeline import generate_heatmap_data
 from unittest.mock import MagicMock
 import json
-import git
 import os
-from unittest.mock import patch, mock_open
+from src.tests.test_contributor_commit_functions import generate_fake_repo
 
 
 def test_date_span():
@@ -157,31 +155,7 @@ def test_retrieve_pull_requests():
 
 
 def test_retrieve_commits():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-
-    with open(os.path.join(current_dir, 'test_repo.json'), 'r') as f:
-        fake_repo = json.load(f)
-
-    def iter_commits(branch_name):
-        commits = fake_repo[branch_name]
-        commit_objs = []
-        date_format = "%Y-%m-%d %H:%M:%S%z"
-        for commit in commits:
-            c_mock = MagicMock()
-            c_mock.hexsha = commit["hexsha"]
-            c_mock.committed_datetime = datetime.datetime.strptime(commit["committed_datetime"], date_format)
-            c_mock.author.name = commit["author"]["name"]
-            commit_objs.append(c_mock)
-
-        return commit_objs
-
-    branches = []
-    for branch in ["branch1", "branch2"]:
-        mock = MagicMock()
-        mock.name = branch
-        branches.append(mock)
-
-    repo = MagicMock(references=branches, iter_commits=iter_commits)
+    repo = generate_fake_repo('test_repo.json')
 
     actual_result = generate_heatmap_data.retrieve_commits(repo)
     expected_result = [

@@ -8,14 +8,12 @@ import time
 from freezegun import freeze_time
 
 
-@freeze_time("2021-08-29")
-def test_get_commits_per_author(mocker):
-    # go through each line of the function get_monthly_commit_data, and ensure that each line is mocked out.
+def generate_fake_repo(json_file):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     date_format = "%Y-%m-%d %H:%M:%S%z"
 
-    with open(os.path.join(current_dir, 'test_repo2.json'), 'r') as f:
-        fakerepo = json.load(f)  # our fakerepo
+    with open(os.path.join(current_dir, json_file), 'r') as f:
+        fakerepo = json.load(f)
 
     def iter_commits(branch_name):
         nonlocal date_format
@@ -36,7 +34,12 @@ def test_get_commits_per_author(mocker):
         mock.name = branch
         branches.append(mock)
 
-    repo = MagicMock(references=branches, iter_commits=iter_commits)
+    return MagicMock(references=branches, iter_commits=iter_commits)
+
+
+@freeze_time("2021-08-29")
+def test_get_commits_per_author(mocker):
+    repo = generate_fake_repo('test_repo2.json')
 
     expected_result = {
         "all_time": {
@@ -76,32 +79,7 @@ def test_get_commits_per_author(mocker):
 
 
 def test_get_monthly_commit_data():
-    # go through each line of the function get_monthly_commit_data, and ensure that each line is mocked out.
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-
-    with open(os.path.join(current_dir, 'test_repo.json'), 'r') as f:
-        fakerepo = json.load(f)  # our fakerepo
-
-    def iter_commits(branch_name):
-        commits = fakerepo[branch_name]
-        commit_objs = []
-        date_format = "%Y-%m-%d %H:%M:%S%z"
-        for commit in commits:
-            c_mock = MagicMock()
-            c_mock.hexsha = commit["hexsha"]
-            c_mock.committed_datetime = datetime.datetime.strptime(commit["committed_datetime"], date_format)
-            c_mock.author.name = commit["author"]["name"]
-            commit_objs.append(c_mock)
-
-        return commit_objs
-
-    branches = []
-    for branch in ["branch1", "branch2"]:
-        mock = MagicMock()
-        mock.name = branch
-        branches.append(mock)
-
-    repo = MagicMock(references=branches, iter_commits=iter_commits)
+    repo = generate_fake_repo('test_repo.json')
 
     expected_result = {
         "month_data": [
