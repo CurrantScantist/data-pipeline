@@ -81,7 +81,61 @@ def test_commit_is_in_week():
 
 
 def test_retrieve_issues():
-    pass
+    issues = [
+        {
+            "data": {"number": "1",
+                     "user": {"login": "user_a"},
+                     "created_at": "2020-01-12T12:00:00Z",
+                     "updated_at": "2020-01-14T12:00:00Z",
+                     "closed_at": None,
+                     "state": "open",
+                     "comments_data": [
+                         {"user": {"login": "user_b"}, "created_at": "2020-01-14T12:00:00Z"}
+                     ]
+                     }
+        },
+        {
+            "data": {"number": "2",
+                     "user": {"login": "user_b"},
+                     "created_at": "2020-01-12T12:00:00Z",
+                     "updated_at": "2020-01-12T12:00:00Z",
+                     "closed_at": "2020-01-12T12:00:00Z",
+                     "state": "closed",
+                     "comments_data": [
+                         {"user": {"login": "user_c"}, "created_at": "2020-01-20T12:00:00Z"},
+                         {"user": {"login": "user_d"}, "created_at": "2020-01-21T12:00:00Z"}
+                     ]
+                     }
+        }
+    ]
+
+    repo = MagicMock()
+    repo.fetch = MagicMock(return_value=issues)
+
+    data = generate_heatmap_data.retrieve_issues(repo, 1)
+    assert data == {
+        "1": {
+            "user": "user_a",
+            "created_at": "2020-01-12T12:00:00Z",
+            "updated_at": "2020-01-14T12:00:00Z",
+            "closed_at": None,
+            "state": "open",
+            "comments": [
+                {"user": "user_b", "created_at": "2020-01-14T12:00:00Z"}
+            ]
+        },
+        "2": {
+            "user": "user_b",
+            "created_at": "2020-01-12T12:00:00Z",
+            "updated_at": "2020-01-12T12:00:00Z",
+            "closed_at": "2020-01-12T12:00:00Z",
+            "state": "closed",
+            "comments": [
+                {"user": "user_c", "created_at": "2020-01-20T12:00:00Z"},
+                {"user": "user_d", "created_at": "2020-01-21T12:00:00Z"},
+            ]
+        },
+    }
 
 
 def test_retrieve_pull_requests():
