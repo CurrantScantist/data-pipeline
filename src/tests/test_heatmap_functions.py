@@ -7,7 +7,17 @@ from src.tests.test_contributor_commit_functions import generate_fake_repo
 
 
 def test_date_span():
-    pass
+    date_format = "%Y-%m-%dT%H:%M:%S%z"
+    start = datetime.datetime.strptime("2020-01-12T12:00:00Z", date_format) - datetime.timedelta(weeks=2)
+    end = datetime.datetime.strptime("2020-01-12T12:00:00Z", date_format)
+    actual = list(generate_heatmap_data.date_span(start, end))
+    expected = [
+        (datetime.datetime(2019, 12, 29, 12, 0, tzinfo=datetime.timezone.utc),
+         datetime.datetime(2020, 1, 5, 12, 0, tzinfo=datetime.timezone.utc)),
+        (datetime.datetime(2020, 1, 5, 12, 0, tzinfo=datetime.timezone.utc),
+         datetime.datetime(2020, 1, 12, 12, 0, tzinfo=datetime.timezone.utc))
+    ]
+    assert expected == actual
 
 
 def test_issue_is_open_in_week_true():
@@ -194,7 +204,3 @@ def test_retrieve_commits():
         c_date = datetime.datetime.strptime(expected_result[i]["committed_datetime"], date_format)
         assert c_date == actual_result[i].committed_datetime
         assert expected_result[i]["author"]["name"] == actual_result[i].author.name
-
-
-def test_generate_heatmap_data():
-    pass
