@@ -143,7 +143,69 @@ def test_retrieve_pull_requests():
 
 
 def test_retrieve_commits():
-    pass
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    with open(os.path.join(current_dir, 'test_repo.json'), 'r') as f:
+        fake_repo = json.load(f)
+
+    def iter_commits(branch_name):
+        commits = fake_repo[branch_name]
+        commit_objs = []
+        date_format = "%Y-%m-%d %H:%M:%S%z"
+        for commit in commits:
+            c_mock = MagicMock()
+            c_mock.hexsha = commit["hexsha"]
+            c_mock.committed_datetime = datetime.datetime.strptime(commit["committed_datetime"], date_format)
+            c_mock.author.name = commit["author"]["name"]
+            commit_objs.append(c_mock)
+
+        return commit_objs
+
+    branches = []
+    for branch in ["branch1", "branch2"]:
+        mock = MagicMock()
+        mock.name = branch
+        branches.append(mock)
+
+    repo = MagicMock(references=branches, iter_commits=iter_commits)
+
+    actual_result = generate_heatmap_data.retrieve_commits(repo)
+    expected_result = [
+        {
+            "hexsha": "abcdef",
+            "committed_datetime": "2020-01-09 15:38:43+01:00",
+            "author": {"name": "Stephen A"}
+        },
+        {
+            "hexsha": "abcde",
+            "committed_datetime": "2020-02-09 15:38:43+01:00",
+            "author": {"name": "Stephen B"}
+        },
+        {
+            "hexsha": "abcd",
+            "committed_datetime": "2020-05-09 15:38:43+01:00",
+            "author": {"name": "Stephen C"}
+        },
+        {
+            "hexsha": "ab",
+            "committed_datetime": "2020-05-09 15:38:43+01:00",
+            "author": {"name": "Stephen E"}
+        },
+        {
+            "hexsha": "a",
+            "committed_datetime": "2020-06-09 15:38:43+01:00",
+            "author": {"name": "Stephen F"}
+        }
+    ]
+    date_format = "%Y-%m-%d %H:%M:%S%z"
+
+    assert len(expected_result) == len(actual_result)
+
+    for i in range(len(expected_result)):
+        assert expected_result[i]["hexsha"] == actual_result[i].hexsha
+        c_date = datetime.datetime.strptime(expected_result[i]["committed_datetime"], date_format)
+        assert c_date == actual_result[i].committed_datetime
+        assert expected_result[i]["author"]["name"] == actual_result[i].author.name
 
 
 def test_generate_heatmap_data():
