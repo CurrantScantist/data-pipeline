@@ -59,5 +59,20 @@ def test_pushing_release_data_to_db():
 
 
 def test_push_heatmap_data_to_mongodb():
-    # TODO
-    pass
+    mock_collection = MagicMock()
+    mock_collection.update_one = MagicMock(return_value={})
+    mock_client = {
+        'test_db': {
+            'repositories': mock_collection
+        }
+    }
+    owner = "owner"
+    repo = "repo"
+
+    generate_heatmap_data.push_heatmap_data_to_mongodb(owner, repo, "value", mock_client)
+
+    mock_client['test_db']['repositories'].update_one.assert_called_once_with(
+        {"name": repo, "owner": owner},
+        {'$set': {'heatmap_data': 'value'}},
+        upsert=True
+    )
