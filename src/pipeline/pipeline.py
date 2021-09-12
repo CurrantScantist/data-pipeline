@@ -1,15 +1,21 @@
+import datetime
 import json
+import math
 import os
 import re
-import subprocess
 import ssl
+import subprocess
 import time
 
 import git
 import requests
-from tqdm.auto import tqdm
-from pymongo import MongoClient
 from dotenv import load_dotenv
+from pymongo import MongoClient
+from tqdm.auto import tqdm
+
+from .sca_helpers import collect_scantist_sca_data
+from .exceptions import HTTPError, RemoteRepoNotFoundError, InvalidArgumentError
+from .generate_heatmap_data import generate_heatmap_data, push_heatmap_data_to_mongodb
 
 load_dotenv()
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
@@ -23,29 +29,12 @@ if not os.path.exists(REPOS_DIR):
 
 
 class Progress(git.RemoteProgress):
+    """
+    Class for showing progress to the console while a repository is cloning locally
+    """
+
     def update(self, op_code, cur_count, max_count=None, message=''):
         tqdm.write(self._cur_line)
-
-
-class RemoteRepoNotFoundError(Exception):
-    """
-    Custom error for when a remote repository is not found on github.com
-    """
-
-    def __init__(self, message):
-        self.message = message
-        super().__init__(message)
-
-
-class HTTPError(Exception):
-    """
-    Custom error for when a request returns an unexpected status code
-    """
-
-    def __init__(self, status_code):
-        self.status_code = status_code
-        self.message = f"Error with status code: {status_code}"
-        super().__init__(self.message)
 
 
 def get_releases(repo_owner, repo_name):
@@ -187,9 +176,16 @@ def get_repository_metadata(repo_owner, repo_name):
     data["name"] = repo_name
     data["owner"] = repo_owner
 
+    owner_keys = ["login", "avatar_url", "gravatar_id", "html_url", "type"]
+    # filtering the json response to only include the keys above
+    data["owner_obj"] = dict(zip(owner_keys, [r["owner"][key] for key in owner_keys]))
+    if 'organization' in r:
+        data["organization_obj"] = dict(zip(owner_keys, [r["organization"][key] for key in owner_keys]))
+
     keys = ["description", "forks", "forks_count", "language", "stargazers_count", "watchers_count", "watchers", "size",
-            "default_branch", "open_issues_count", "open_issues",
-            "topics", "has_issues", "archived", "disabled", "visibility", "pushed_at", "created_at", "updated_at"]
+            "default_branch", "open_issues_count", "open_issues", "topics", "has_issues", "archived", "disabled",
+            "visibility", "pushed_at", "created_at", "updated_at", "html_url", "fork", "homepage", "has_projects",
+            "has_downloads", "has_wiki", "has_pages", "license", "subscribers_count"]
     for key in keys:
         try:
             data[key] = r[key]
@@ -252,6 +248,129 @@ def call_cloc(repo_path, include_header=False):
     return tag_data
 
 
+def get_commits_per_author(repo):
+    """
+    Gets a tally of the number of commits all time and in the last 30 days for each author and returns a dictionary
+    structure containing the data
+    :param repo: the Repo type from gitPython
+    :return: a dictionary with the commit data
+    """
+    data = {}
+    all_time_total = 0
+    last_30_days_total = 0
+    commit_set = set()
+    for ref in repo.references:
+        for commit in repo.iter_commits(ref.name):
+            # if the commit has already been counted for another branch, ignore it
+            if commit.hexsha in commit_set:
+                continue
+            commit_set.add(commit.hexsha)
+            if commit.author.name in data.keys():
+                data[commit.author.name]["all_time"] += 1
+                all_time_total += 1
+            else:
+                data[commit.author.name] = {
+                    "name": commit.author.name,
+                    "all_time": 1,
+                    "last_30_days": 0
+                }
+                all_time_total += 1
+            # check if the commit was in the most recent 30 days
+            if (datetime.datetime.now(datetime.timezone.utc) - commit.committed_datetime) < datetime.timedelta(
+                    days=30):
+                data[commit.author.name]["last_30_days"] += 1
+                last_30_days_total += 1
+
+    # sort authors by number of commits
+    all_time_list = sorted(data.values(), key=lambda x: x["all_time"], reverse=True)
+    last_30_days_list = sorted(data.values(), key=lambda x: x["last_30_days"], reverse=True)
+    MAX_AUTHORS = 25
+    return {
+        "all_time": {
+            "top_25": all_time_list[:min(MAX_AUTHORS, len(all_time_list))],
+            "total": all_time_total
+        },
+        "last_30_days": {
+            "top_25": last_30_days_list[:min(MAX_AUTHORS, len(last_30_days_list))],
+            "total": last_30_days_total
+        }
+    }
+
+
+def get_monthly_commit_data(repo):
+    """
+    Gets the total number of commits for each month of a repo and gets total number of contributors per month,
+    and returns a dictionary structure containing the data
+    :param repo: The Repo type from gitPython
+    :return: a dictionary with monthly commit and contributor data
+    """
+    data = {}
+    commit_set = set()
+    all_time_total = 0
+    for ref in repo.references:
+
+        for commit in repo.iter_commits(ref.name):
+            # if the commit has already been counted for another branch, ignore it
+            if commit.hexsha in commit_set:
+                continue
+            commit_set.add(commit.hexsha)
+            # print(commit.hexsha)
+
+            commit_date = commit.committed_datetime.strftime('%Y-%m')
+            if commit_date in data.keys():
+                data[commit_date]["commits"] += 1
+                all_time_total += 1
+            else:  # For the first commit of a month
+                data[commit_date] = {
+                    "month": commit_date,
+                    "commits": 1,
+                    "contributor_count": 1,
+                    "contributor_name": {commit.author.name}
+                }
+            # If the contributor name is unique:
+            if commit.author.name not in data[commit_date]["contributor_name"]:
+                data[commit_date]["contributor_count"] += 1
+                data[commit_date]["contributor_name"].add(commit.author.name)
+
+    monthly_data_list = sorted(data.values(), key=lambda x: x["month"], reverse=True)  # list of dictionary of set
+    for i, _ in enumerate(monthly_data_list):
+        monthly_data_list[i].pop("contributor_name")
+
+    return {
+        "month_data": monthly_data_list
+    }
+
+
+def reduce_releases(releases, max_releases=15):
+    """
+    Reduces a list of tag names to a shorter list of tag names. The purpose of this function is to identify a subset
+    of all the git tags which will be processed by the pipeline, so that the pipeline does not need to process all tags.
+    :param max_releases: the maximum number of releases that can be allowed
+    :param releases: a list of release/tag names
+    :return: a subset of the input list
+    """
+    if len(releases) < 5:
+        return releases
+
+    if max_releases < 2:
+        raise InvalidArgumentError('max_releases must be greater than 2')
+
+    # calculate N to aim for less than 30 releases
+    n = max(2, math.floor(len(releases) / max_releases - 2))
+    if n < 2:
+        return releases
+
+    first = releases.pop(0)
+    last = releases.pop(len(releases) - 1)
+    good_releases = []
+
+    for index, release in enumerate(releases):
+        if index % n == 0:
+            good_releases.append(release)
+
+    return [first] + good_releases + [last]
+
+
 def process_repository(repo_str):
     """
     Processes the repository by doing the following:
@@ -269,6 +388,8 @@ def process_repository(repo_str):
         return
 
     repo_owner, repo_name = repo_str.split("/")
+
+    tqdm.write(f"Running pipeline process for repository: {repo_str}")
 
     # get repository metadata from the github API
     tqdm.write("Retrieving repository metadata from the Github REST API")
@@ -288,6 +409,18 @@ def process_repository(repo_str):
         tqdm.write("cloning repository...")
         repo = clone_repo(repo_owner, repo_name)
 
+    # get the mongoDB client
+    mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+
+    tqdm.write("calculating commits per author data")
+    data['commits_per_author'] = get_commits_per_author(repo)
+
+    tqdm.write("calculating commits per month")
+    data['commits_per_month'] = get_monthly_commit_data(repo)
+
+    heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo)
+    push_heatmap_data_to_mongodb(repo_owner, repo_name, heatmap_data, mongo_client)
+
     # get the tags from the repository
     tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
     tqdm.write(f"There were {len(tags)} tags found in the repository")
@@ -299,12 +432,9 @@ def process_repository(repo_str):
     else:
         data["latest_tag"] = None
 
-    # get the mongoDB client
-    mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
-
-    # push the repository data to mongoDB
-    tqdm.write("Pushing repository data to mongoDB")
-    push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
+    # reducing the number of tags
+    tags = reduce_releases(tags, max_releases=30)
+    tqdm.write(f"number of tags reduced to: {len(tags)}")
 
     g = git.Git(repo_path)  # initialise git in order to checkout each tag
     tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
@@ -324,8 +454,14 @@ def process_repository(repo_str):
         tqdm.write("pushing to mongodb...")
         push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
 
-    tqdm.write("deleting local repository...")
+    # push the repository data to mongoDB
+    tqdm.write("Pushing repository data to mongoDB")
+    push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
+
+    # tqdm.write('Collecting SCA data')
+    # collect_scantist_sca_data(REPOS_DIR, repo_path)
 
     repo.close()
     time.sleep(2)  # to wait for the previous git related processes to release the repository
+    tqdm.write("deleting local repository...")
     clean_up_repo(repo_name)
