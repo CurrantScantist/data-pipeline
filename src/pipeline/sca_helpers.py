@@ -92,20 +92,21 @@ def generate_node_link_data(dep_tree_data, report_data, max_level=10):
 
         # add the node to the data
         lib_id = 0
-        if obj["artifact_id"] not in data["nodes"]:
+        lib_name = obj["artifact_id"].lower()
+        if lib_name not in data["nodes"]:
             lib_id = len(data["nodes"].keys())
-            data["nodes"][obj["artifact_id"]] = {
+            data["nodes"][lib_name] = {
                 "id": lib_id,
-                "name": obj["artifact_id"],
+                "name": lib_name,
                 "value": 1 if obj["type"] == "dependency" else 2,
                 "category": 0
             }
         else:
-            lib_id = data["nodes"][obj["artifact_id"]]["id"]
+            lib_id = data["nodes"][lib_name]["id"]
         # add the link to the data
         if parent is not None:
             data["links"].append({
-                "source": data["nodes"][parent["artifact_id"]]["id"],
+                "source": data["nodes"][parent["artifact_id"].lower()]["id"],
                 "target": lib_id
             })
         if "dependencies" in obj:
@@ -119,12 +120,15 @@ def generate_node_link_data(dep_tree_data, report_data, max_level=10):
         license_name = dep_license["license_name"]
         if license_name is None:
             license_name = "None"
+
         if dep_license["library"] is None:
             continue
         if dep_license["library"] == "dummy-lib":
             continue
 
-        data["nodes"][dep_license["library"]]["category"] = licenses[license_name]
+        license_index = licenses[license_name]
+        library = dep_license["library"]
+        data["nodes"][library]["category"] = license_index
 
     data["nodes"] = list(data["nodes"].values())
 
@@ -185,8 +189,8 @@ def collect_scantist_sca_data(repos_dir, repo_path, repo_owner, repo_name, mongo
         push_scantist_sca_data_to_mongodb(repo_owner, repo_name, data, mongo_client)
 
         # remove the generated files
-        os.remove(os.path.join(repo_path, "Scantist-Reports.json"))
-        os.remove(os.path.join(repo_path, "dependency-tree.json"))
+        # os.remove(os.path.join(repo_path, "Scantist-Reports.json"))
+        # os.remove(os.path.join(repo_path, "dependency-tree.json"))
 
     except Exception as e:
         traceback.print_exc()
