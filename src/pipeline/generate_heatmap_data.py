@@ -85,17 +85,41 @@ def commit_is_in_week(commit, start_of_week, end_of_week):
     return start_of_week < commit.committed_datetime < end_of_week
 
 
-def retrieve_issues(repo, num_weeks):
+def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format="%Y-%m-%dT%H:%M:%S%z"):
     """
     Retrieves a repository's issues from the github API
     :param repo: the repo object (from perceval)
     :param num_weeks: the number of weeks to retrieve
     :return: the json object containing the issues in the last num_weeks weeks
     """
+    db = client["test_db"]
+    issue_collection = db["issues"]
     json_data = {}
 
     current_date = datetime.now(timezone.utc)
     cut_off_date = datetime.now(timezone.utc) - timedelta(weeks=num_weeks)
+
+    most_recent_update = None
+
+    # retrieve any issues already stored in the database
+    for db_issue in issue_collection.find({"name": repo_name, "owner": repo_owner,
+                                           "updated_at": {"$gt": cut_off_date}},
+                                          {"_id": 0, "name": 0, "owner": 0}):
+        if most_recent_update is None:
+            most_recent_update = db_issue["updated_at"]
+        else:
+            if db_issue["updated_at"] > most_recent_update:
+                most_recent_update = db_issue["updated_at"]
+
+        for date_str in ["created_at", "closed_at", "updated_at"]:
+            if db_issue[date_str] is not None:
+                if db_issue[date_str] != "None":
+                    db_issue[date_str] = db_issue[date_str].strftime(date_format)
+        json_data[db_issue["id"]] = db_issue
+
+    # get the new cut off date (if there were issues already in the database)
+    if most_recent_update is not None:
+        cut_off_date = most_recent_update
 
     for item in tqdm(
             repo.fetch(from_date=cut_off_date, to_date=current_date, category="issue"),
@@ -111,6 +135,20 @@ def retrieve_issues(repo, num_weeks):
         json_data[num]['comments'] = []
         for c in item['data']['comments_data']:
             json_data[num]['comments'].append({'user': c['user']['login'], 'created_at': c['created_at']})
+
+        search = {
+            "name": repo_name,
+            "owner": repo_owner,
+            "id": num
+        }
+
+        issue_to_insert = json_data[num]
+        for date_str in ["created_at", "closed_at", "updated_at"]:
+            if issue_to_insert[date_str] is not None:
+                if issue_to_insert[date_str] != "None":
+                    issue_to_insert[date_str] = datetime.strptime(issue_to_insert[date_str], date_format)
+
+        issue_collection.update_one(search, {"$set": issue_to_insert}, upsert=True)
 
     tqdm.write("Issue data extracted to JSON")
     return json_data
@@ -189,7 +227,7 @@ def retrieve_commits(repo_instance):
     return commit_list
 
 
-def generate_heatmap_data(repo_owner, repo_name, repo_instance, dimensions=(19, 8)):
+def generate_heatmap_data(repo_owner, repo_name, repo_instance, mongo_client, dimensions=(19, 8)):
     """
     Generates the heatmap data. The data includes metrics for issues, pull requests and commit frequency.
     :param repo_owner: the owner of the repository
@@ -215,7 +253,7 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, dimensions=(19, 
         sleep_time=300
     )
 
-    issues = retrieve_issues(repo, num_weeks)
+    issues = retrieve_issues(repo_owner, repo_name, repo, num_weeks, mongo_client)
     pull_requests = retrieve_pull_requests(repo, num_weeks)
     commits = retrieve_commits(repo_instance)
 
