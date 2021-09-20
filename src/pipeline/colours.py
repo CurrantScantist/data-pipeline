@@ -54,8 +54,8 @@ def update_colours_for_current_data():
 
     for repo in tqdm(repo_collection.find({}, projection), desc="updating repository colours"):
         repo_str = f"{repo['owner']}/{repo['name']}"
-        new_data = {"repo_colour": get_colour_triad(repo_str), "language_colours": {},
-                    "topic_colours": [get_colour_from_string(topic) for topic in repo['topics']]}
+        new_data = {"repo_colour": get_colour_from_string(repo_str), "language_colours": {},
+                    "topic_colours": dict([(topic, get_colour_from_string(topic)) for topic in repo['topics']])}
 
         license_colours = {}
 
