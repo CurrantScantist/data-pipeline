@@ -11,6 +11,14 @@ CONNECTION_STRING = os.environ.get("CONNECTION_STRING")
 
 
 def limit_languages_for_repository(repo_owner, repo_name, mongo_client, limit=12):
+    """
+    Function for limiting the number of different languages in the lOC data for each release
+    :param repo_owner: the owner of the repository
+    :param repo_name: the name of the repository
+    :param mongo_client: the MongoCLient object from PyMongo
+    :param limit: the maximum number of different languages to include in the LOC data
+    :return: None
+    """
     db = mongo_client["test_db"]
     release_collection = db["releases"]
 
@@ -74,6 +82,10 @@ def limit_languages_for_repository(repo_owner, repo_name, mongo_client, limit=12
 
 
 def limit_languages_for_current_data():
+    """
+    Function for calling limit_languages_for_repository for each repository currently in the database
+    :return: None
+    """
     client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
     db = client["test_db"]
     repo_collection = db["repositories"]
