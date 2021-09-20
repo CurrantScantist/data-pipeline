@@ -11,6 +11,13 @@ CONNECTION_STRING = os.environ.get('CONNECTION_STRING')
 
 
 def hash_string(key, p=97, m=359):
+    """
+    Function to hash a string using the universal hash function with the specified paramters.
+    :param key: the string to hash
+    :param p: prime number
+    :param m: the modulus value
+    :return: the hashed result
+    """
     res = 0
     for index, character in enumerate(key):
         res += ((ord(character) - 96) * p) % m
@@ -19,22 +26,28 @@ def hash_string(key, p=97, m=359):
 
 
 def get_colour_from_string(key, saturation=0.65, lightness=0.5):
+    """
+    Function to take a string and return a hex representation of a colour for it. The hash of the string determines the
+    hue and generates the colour in the HSL colour space.
+    :param key: the string key
+    :param saturation: the saturation value of the colour
+    :param lightness: the lightness value of the colour
+    :return: hex string for the colour
+    """
     hue = hash_string(key.lower())
     colour = Color(hsl=(hue / 360, saturation, lightness))
     return colour.hex
 
 
-# def get_colour_triad(key, saturation=0.65, lightness=0.5):
-#     hue1 = hash_string(key)
-#     hue2 = (hue1 + 120) % 360
-#     hue3 = (hue1 - 120) % 360
-#     colour1 = Color(hsl=(hue1 / 360, saturation, lightness))
-#     colour2 = Color(hsl=(hue2 / 360, saturation, lightness))
-#     colour3 = Color(hsl=(hue3 / 360, saturation, lightness))
-#     return colour1.hex, colour2.hex, colour3.hex
-
-
 def generate_repository_colours(repo_owner, repo_name, mongo_client, repo):
+    """
+    Function to generate the dynamic colours for a repository and push this data to mongodb
+    :param repo_owner: the owner of the repository
+    :param repo_name: the name of the repository
+    :param mongo_client: the MongoClient object from PyMongo
+    :param repo: the repository data object from the database if available (optional)
+    :return: None
+    """
     db = mongo_client["test_db"]
     repo_collection = db['repositories']
     releases_collection = db['releases']
@@ -84,6 +97,11 @@ def generate_repository_colours(repo_owner, repo_name, mongo_client, repo):
 
 
 def update_colours_for_current_data():
+    """
+    Function to call generate_repository_colours() for every repository currently in mongodb. This can be used to
+    quickly update the colour configuration without running the pipeline.
+    :return: None
+    """
     client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
     db = client['test_db']
     repo_collection = db['repositories']
@@ -103,4 +121,3 @@ def update_colours_for_current_data():
 
 if __name__ == '__main__':
     update_colours_for_current_data()
-    # get_repository_colours()
