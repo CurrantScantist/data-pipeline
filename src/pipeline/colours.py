@@ -10,9 +10,7 @@ load_dotenv()
 CONNECTION_STRING = os.environ.get('CONNECTION_STRING')
 
 
-def hash_string(key):
-    p = 97
-    m = 359
+def hash_string(key, p=97, m=359):
     res = 0
     for index, character in enumerate(key):
         res += ((ord(character) - 96) * p) % m
@@ -36,11 +34,59 @@ def get_colour_from_string(key, saturation=0.65, lightness=0.5):
 #     return colour1.hex, colour2.hex, colour3.hex
 
 
+def generate_repository_colours(repo_owner, repo_name, mongo_client, repo):
+    db = mongo_client["test_db"]
+    repo_collection = db['repositories']
+    releases_collection = db['releases']
+
+    search_dict = {"name": repo_name, "owner": repo_owner}
+    if repo is None:
+        projection = {
+            "_id": 0,
+            "name": 1,
+            "owner": 1,
+            "languages": 1,
+            "topics": 1,
+            "nodelink_data": 1,
+            "license": 1
+        }
+        repo = repo_collection.find(search_dict, projection)
+
+    repo_str = f"{repo_owner}/{repo_name}"
+    new_data = {"repo_colour": get_colour_from_string(repo_str), "language_colours": {},
+                "topic_colours": dict([(topic, get_colour_from_string(topic)) for topic in repo['topics']])}
+
+    license_colours = {}
+
+    # update the licenses
+    if "license" in repo.keys():
+        license_name = repo["license"]["name"]
+        license_colours[license_name] = get_colour_from_string(license_name)
+
+    if "nodelink_data" in repo.keys():
+        licenses = [obj["name"] for obj in repo["nodelink_data"]["categories"]]
+        for license_name in licenses:
+            license_colours[license_name] = get_colour_from_string(license_name)
+
+    new_data["license_colours"] = license_colours
+
+    # calculate the colours for languages
+    repo_languages = set()
+
+    for release in releases_collection.find(search_dict):
+        repo_languages.update(release['LOC'].keys())
+    if "SUM" in repo_languages:
+        repo_languages.remove("SUM")
+    for language in list(repo_languages):
+        new_data["language_colours"][language] = get_colour_from_string(language)
+
+    repo_collection.update_one(search_dict, {"$set": new_data})
+
+
 def update_colours_for_current_data():
     client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
     db = client['test_db']
     repo_collection = db['repositories']
-    releases_collection = db['releases']
 
     projection = {
         "_id": 0,
@@ -51,39 +97,10 @@ def update_colours_for_current_data():
         "nodelink_data": 1,
         "license": 1
     }
-
     for repo in tqdm(repo_collection.find({}, projection), desc="updating repository colours"):
-        repo_str = f"{repo['owner']}/{repo['name']}"
-        new_data = {"repo_colour": get_colour_from_string(repo_str), "language_colours": {},
-                    "topic_colours": dict([(topic, get_colour_from_string(topic)) for topic in repo['topics']])}
-
-        license_colours = {}
-
-        # update the licenses
-        if "license" in repo.keys():
-            license_name = repo["license"]["name"]
-            license_colours[license_name] = get_colour_from_string(license_name)
-
-        if "nodelink_data" in repo.keys():
-            licenses = [obj["name"] for obj in repo["nodelink_data"]["categories"]]
-            for license_name in licenses:
-                license_colours[license_name] = get_colour_from_string(license_name)
-
-        new_data["license_colours"] = license_colours
-
-        # calculate the colours for languages
-        search_dict = {"name": repo["name"], "owner": repo["owner"]}
-        repo_languages = set()
-
-        for release in releases_collection.find(search_dict):
-            repo_languages.update(release['LOC'].keys())
-        if "SUM" in repo_languages:
-            repo_languages.remove("SUM")
-        for language in list(repo_languages):
-            new_data["language_colours"][language] = get_colour_from_string(language)
-
-        repo_collection.update_one(search_dict, {"$set": new_data})
+        generate_repository_colours(repo["owner"], repo["name"], client, repo=repo)
 
 
 if __name__ == '__main__':
     update_colours_for_current_data()
+    # get_repository_colours()
