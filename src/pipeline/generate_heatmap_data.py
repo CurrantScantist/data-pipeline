@@ -7,8 +7,11 @@ from perceval.backends.core.github import GitHub
 from tqdm import tqdm
 
 load_dotenv()
-ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
-ACCESS_TOKEN2 = os.environ.get('ACCESS_TOKEN2')
+ACCESS_TOKENS = [os.environ.get('ACCESS_TOKEN')]
+for i in range(6):
+    env_token = os.environ.get(f"ACCESS_TOKEN{i}")
+    if env_token is not None:
+        ACCESS_TOKENS.append(env_token)
 
 
 def date_span(start_date, end_date, delta=timedelta(weeks=1)):
@@ -201,7 +204,7 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, dimensions=(19, 
 
     results = []
 
-    tokens = [ACCESS_TOKEN, ACCESS_TOKEN2]
+    tokens = ACCESS_TOKENS
     tokens = [token for token in tokens if token is not None]
 
     repo = GitHub(
