@@ -53,7 +53,7 @@ def test_call_scantist_sca_successful(mocker):
     with patch('src.pipeline.sca_helpers.open', mock_open(read_data=json.dumps(test_data))):
         results = sca_helpers.call_scantist_sca('', '')
 
-    assert results == test_data
+    assert results == (test_data, test_data)
 
 
 def test_call_scantist_sca_error(mocker):
