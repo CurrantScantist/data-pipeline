@@ -16,6 +16,7 @@ from tqdm.auto import tqdm
 from .sca_helpers import collect_scantist_sca_data
 from .exceptions import HTTPError, RemoteRepoNotFoundError, InvalidArgumentError
 from .generate_heatmap_data import generate_heatmap_data, push_heatmap_data_to_mongodb
+from .colours import generate_repository_colours
 
 load_dotenv()
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
@@ -458,8 +459,11 @@ def process_repository(repo_str):
     tqdm.write("Pushing repository data to mongoDB")
     push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
 
-    # tqdm.write('Collecting SCA data')
-    # collect_scantist_sca_data(REPOS_DIR, repo_path)
+    tqdm.write("Collecting SCA data")
+    collect_scantist_sca_data(REPOS_DIR, repo_path, repo_owner, repo_name, mongo_client)
+
+    tqdm.write("Generating dynamic colours for the repository")
+    generate_repository_colours(repo_owner, repo_name, mongo_client)
 
     repo.close()
     time.sleep(2)  # to wait for the previous git related processes to release the repository
