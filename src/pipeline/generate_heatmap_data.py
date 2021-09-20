@@ -85,12 +85,28 @@ def commit_is_in_week(commit, start_of_week, end_of_week):
     return start_of_week < commit.committed_datetime < end_of_week
 
 
-def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format="%Y-%m-%dT%H:%M:%S%z"):
-    """
+"""
     Retrieves a repository's issues from the github API
     :param repo: the repo object (from perceval)
     :param num_weeks: the number of weeks to retrieve
     :return: the json object containing the issues in the last num_weeks weeks
+    """
+
+
+def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format="%Y-%m-%dT%H:%M:%S%z"):
+    """
+    Retrieves a repository's issues from the github API. Due the the very slow process of retrieving issues from the
+    github API, any issues that are extracted will be stored in mongodb so that they do not need to be retrieved from
+    the github API in following pipeline runs. This function checks if there are any issues (within the relevant time
+    period) already in mongodb and then retrieves issues from the github API using the appropriate cut off date based
+    on the most recently updated issue found in mongodb.
+    :param repo_owner: the owner of the repository
+    :param repo_name: the name of the repository
+    :param repo: the repo object (from perceval)
+    :param num_weeks: the number of weeks from the current date to retrieve issues from
+    :param client: the MongoClient object from PyMongo
+    :param date_format: the date format to use when representing dates as strings
+    :return: the json object with the issue data for the last num_weeks weeks
     """
     db = client["test_db"]
     issue_collection = db["issues"]
@@ -117,9 +133,13 @@ def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format=
                     db_issue[date_str] = db_issue[date_str].strftime(date_format)
         json_data[db_issue["id"]] = db_issue
 
+    tqdm.write(f"There were {len(json_data.keys())} relevant issues already found in the database")
+
     # get the new cut off date (if there were issues already in the database)
     if most_recent_update is not None:
         cut_off_date = most_recent_update
+
+    tqdm.write(f"Finding github issues since {cut_off_date.strftime(date_format)}")
 
     for item in tqdm(
             repo.fetch(from_date=cut_off_date, to_date=current_date, category="issue"),
@@ -233,6 +253,7 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, mongo_client, di
     :param repo_owner: the owner of the repository
     :param repo_name: the name of the repository
     :param repo_instance: the local git Repo object
+    :param mongo_client: the MongoClient object from PyMongo
     :param dimensions: the dimensions of the heatmap to generate (width, height)
     :return: an array containing the necessary data for the heatmap
     """
