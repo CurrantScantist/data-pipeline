@@ -16,6 +16,7 @@ from tqdm.auto import tqdm
 from .sca_helpers import collect_scantist_sca_data
 from .exceptions import HTTPError, RemoteRepoNotFoundError, InvalidArgumentError
 from .generate_heatmap_data import generate_heatmap_data, push_heatmap_data_to_mongodb
+from .limit_languages import limit_languages_for_repository
 
 load_dotenv()
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
@@ -453,6 +454,9 @@ def process_repository(repo_str):
 
         tqdm.write("pushing to mongodb...")
         push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
+
+    tqdm.write("Updating the LOC data to limit the number of languages")
+    limit_languages_for_repository(repo_owner, repo_name, mongo_client)
 
     # push the repository data to mongoDB
     tqdm.write("Pushing repository data to mongoDB")
