@@ -12,7 +12,7 @@ CONNECTION_STRING = os.environ.get('CONNECTION_STRING')
 
 def hash_string(key, p=97, m=359):
     """
-    Function to hash a string using the universal hash function with the specified paramters.
+    Function to hash a string using the universal hash function with the specified parameters.
     :param key: the string to hash
     :param p: prime number
     :param m: the modulus value
@@ -39,7 +39,7 @@ def get_colour_from_string(key, saturation=0.65, lightness=0.5):
     return colour.hex
 
 
-def generate_repository_colours(repo_owner, repo_name, mongo_client, repo):
+def generate_repository_colours(repo_owner, repo_name, mongo_client, repo=None):
     """
     Function to generate the dynamic colours for a repository and push this data to mongodb
     :param repo_owner: the owner of the repository
