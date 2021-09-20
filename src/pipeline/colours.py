@@ -63,7 +63,7 @@ def generate_repository_colours(repo_owner, repo_name, mongo_client, repo=None):
             "nodelink_data": 1,
             "license": 1
         }
-        repo = repo_collection.find(search_dict, projection)
+        repo = repo_collection.find_one(search_dict, projection)
 
     repo_str = f"{repo_owner}/{repo_name}"
     new_data = {"repo_colour": get_colour_from_string(repo_str), "language_colours": {},
