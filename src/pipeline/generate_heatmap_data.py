@@ -174,17 +174,53 @@ def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format=
     return json_data
 
 
-def retrieve_pull_requests(repo, num_weeks):
+def retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, client, date_format="%Y-%m-%dT%H:%M:%S%z"):
     """
-    Retrieves a repository's pull requests from the github API
+    Retrieves a repository's pull requests from the github API. Due the the very slow process of retrieving pull
+    requests from the github API, any pull requests that are extracted will be stored in mongodb so that they do not
+    need to be retrieved from the github API in following pipeline runs. This function checks if there are any pull
+    requests (within the relevant time period) already in mongodb and then retrieves pull requests from the github API
+    using the appropriate cut off date based on the most recently updated pull request found in mongodb.
+    :param repo_owner: the owner of the repository
+    :param repo_name: the name of the repository
     :param repo: the repo object (from perceval)
-    :param num_weeks: the number of weeks to retrieve
-    :return: the json object containing the pull requests in the last num_weeks weeks
+    :param num_weeks: the number of weeks from the current date to retrieve issues from
+    :param client: the MongoClient object from PyMongo
+    :param date_format: the date format to use when representing dates as strings
+    :return: the json object with the pull request data for the last num_weeks weeks
     """
+    db = client["test_db"]
+    pr_collection = db["pull_requests"]
     json_data = {}
 
     current_date = datetime.now(timezone.utc)
     cut_off_date = datetime.now(timezone.utc) - timedelta(weeks=num_weeks)
+
+    most_recent_update = None
+
+    # retrieve any pull requests already stored in the database
+    for db_pull_request in pr_collection.find({"name": repo_name, "owner": repo_owner,
+                                               "updated_at": {"$gt": cut_off_date}},
+                                              {"_id": 0, "name": 0, "owner": 0}):
+        if most_recent_update is None:
+            most_recent_update = db_pull_request["updated_at"]
+        else:
+            if db_pull_request["updated_at"] > most_recent_update:
+                most_recent_update = db_pull_request["updated_at"]
+
+        for date_str in ["created_at", "closed_at", "updated_at", "merged_at"]:
+            if db_pull_request[date_str] is not None:
+                if db_pull_request[date_str] != "None":
+                    db_pull_request[date_str] = db_pull_request[date_str].strftime(date_format)
+        json_data[db_pull_request["id"]] = db_pull_request
+
+    tqdm.write(f"There were {len(json_data.keys())} relevant issues already found in the database")
+
+    # get the new cut off date (if there were pull requests already in the database)
+    if most_recent_update is not None:
+        cut_off_date = most_recent_update
+
+    tqdm.write(f"Finding github issues since {cut_off_date.strftime(date_format)}")
 
     for item in tqdm(
             repo.fetch(from_date=cut_off_date, to_date=current_date, category="pull_request"),
@@ -203,6 +239,7 @@ def retrieve_pull_requests(repo, num_weeks):
         json_data[num]['state'] = item['data']['state']
         json_data[num]['created_at'] = item['data']['created_at']
         json_data[num]['closed_at'] = item['data']['closed_at']
+        json_data[num]['updated_at'] = item['data']['updated_at']
         json_data[num]['submitted_at'] = []
         if item['data']['reviews_data']:
             for c in item['data']['reviews_data']:
@@ -225,6 +262,21 @@ def retrieve_pull_requests(repo, num_weeks):
             for c in item['data']['reviews_data']:
                 if c['user_data']:
                     json_data[num]['reviewer'].append({'user': c['user_data']['login']})
+
+        search = {
+            "name": repo_name,
+            "owner": repo_owner,
+            "id": num
+        }
+
+        # add the pull request data to the database
+        pr_to_insert = json_data[num]
+        for date_str in ["created_at", "closed_at", "updated_at", "merged_at"]:
+            if pr_to_insert[date_str] is not None:
+                if pr_to_insert[date_str] != "None":
+                    pr_to_insert[date_str] = datetime.strptime(pr_to_insert[date_str], date_format)
+
+        pr_collection.update_one(search, {"$set": pr_to_insert}, upsert=True)
 
     tqdm.write("Pull Request data extracted to JSON")
     return json_data
@@ -275,7 +327,7 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, mongo_client, di
     )
 
     issues = retrieve_issues(repo_owner, repo_name, repo, num_weeks, mongo_client)
-    pull_requests = retrieve_pull_requests(repo, num_weeks)
+    pull_requests = retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, mongo_client)
     commits = retrieve_commits(repo_instance)
 
     for start_of_week, end_of_week in date_span(start_date, end_date):
