@@ -85,14 +85,6 @@ def commit_is_in_week(commit, start_of_week, end_of_week):
     return start_of_week < commit.committed_datetime < end_of_week
 
 
-"""
-    Retrieves a repository's issues from the github API
-    :param repo: the repo object (from perceval)
-    :param num_weeks: the number of weeks to retrieve
-    :return: the json object containing the issues in the last num_weeks weeks
-    """
-
-
 def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format="%Y-%m-%dT%H:%M:%S%z"):
     """
     Retrieves a repository's issues from the github API. Due the the very slow process of retrieving issues from the
@@ -162,7 +154,7 @@ def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format=
             "id": num
         }
 
-        issue_to_insert = json_data[num]
+        issue_to_insert = json_data[num].copy()
         for date_str in ["created_at", "closed_at", "updated_at"]:
             if issue_to_insert[date_str] is not None:
                 if issue_to_insert[date_str] != "None":
@@ -270,7 +262,7 @@ def retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, client, date_
         }
 
         # add the pull request data to the database
-        pr_to_insert = json_data[num]
+        pr_to_insert = json_data[num].copy()
         for date_str in ["created_at", "closed_at", "updated_at", "merged_at"]:
             if pr_to_insert[date_str] is not None:
                 if pr_to_insert[date_str] != "None":
