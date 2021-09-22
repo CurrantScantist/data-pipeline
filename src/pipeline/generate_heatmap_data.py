@@ -7,8 +7,11 @@ from perceval.backends.core.github import GitHub
 from tqdm import tqdm
 
 load_dotenv()
-ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
-ACCESS_TOKEN2 = os.environ.get('ACCESS_TOKEN2')
+ACCESS_TOKENS = [os.environ.get('ACCESS_TOKEN')]
+for i in range(6):
+    env_token = os.environ.get(f"ACCESS_TOKEN{i}")
+    if env_token is not None:
+        ACCESS_TOKENS.append(env_token)
 
 
 def date_span(start_date, end_date, delta=timedelta(weeks=1)):
@@ -82,17 +85,53 @@ def commit_is_in_week(commit, start_of_week, end_of_week):
     return start_of_week < commit.committed_datetime < end_of_week
 
 
-def retrieve_issues(repo, num_weeks):
+def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format="%Y-%m-%dT%H:%M:%S%z"):
     """
-    Retrieves a repository's issues from the github API
+    Retrieves a repository's issues from the github API. Due the the very slow process of retrieving issues from the
+    github API, any issues that are extracted will be stored in mongodb so that they do not need to be retrieved from
+    the github API in following pipeline runs. This function checks if there are any issues (within the relevant time
+    period) already in mongodb and then retrieves issues from the github API using the appropriate cut off date based
+    on the most recently updated issue found in mongodb.
+    :param repo_owner: the owner of the repository
+    :param repo_name: the name of the repository
     :param repo: the repo object (from perceval)
-    :param num_weeks: the number of weeks to retrieve
-    :return: the json object containing the issues in the last num_weeks weeks
+    :param num_weeks: the number of weeks from the current date to retrieve issues from
+    :param client: the MongoClient object from PyMongo
+    :param date_format: the date format to use when representing dates as strings
+    :return: the json object with the issue data for the last num_weeks weeks
     """
+    db = client["test_db"]
+    issue_collection = db["issues"]
     json_data = {}
 
     current_date = datetime.now(timezone.utc)
     cut_off_date = datetime.now(timezone.utc) - timedelta(weeks=num_weeks)
+
+    most_recent_update = None
+
+    # retrieve any issues already stored in the database
+    for db_issue in issue_collection.find({"name": repo_name, "owner": repo_owner,
+                                           "updated_at": {"$gt": cut_off_date}},
+                                          {"_id": 0, "name": 0, "owner": 0}):
+        if most_recent_update is None:
+            most_recent_update = db_issue["updated_at"]
+        else:
+            if db_issue["updated_at"] > most_recent_update:
+                most_recent_update = db_issue["updated_at"]
+
+        for date_str in ["created_at", "closed_at", "updated_at"]:
+            if db_issue[date_str] is not None:
+                if db_issue[date_str] != "None":
+                    db_issue[date_str] = db_issue[date_str].strftime(date_format)
+        json_data[db_issue["id"]] = db_issue
+
+    tqdm.write(f"There were {len(json_data.keys())} relevant issues already found in the database")
+
+    # get the new cut off date (if there were issues already in the database)
+    if most_recent_update is not None:
+        cut_off_date = most_recent_update
+
+    tqdm.write(f"Finding github issues since {cut_off_date.strftime(date_format)}")
 
     for item in tqdm(
             repo.fetch(from_date=cut_off_date, to_date=current_date, category="issue"),
@@ -109,21 +148,71 @@ def retrieve_issues(repo, num_weeks):
         for c in item['data']['comments_data']:
             json_data[num]['comments'].append({'user': c['user']['login'], 'created_at': c['created_at']})
 
+        search = {
+            "name": repo_name,
+            "owner": repo_owner,
+            "id": num
+        }
+
+        issue_to_insert = json_data[num].copy()
+        for date_str in ["created_at", "closed_at", "updated_at"]:
+            if issue_to_insert[date_str] is not None:
+                if issue_to_insert[date_str] != "None":
+                    issue_to_insert[date_str] = datetime.strptime(issue_to_insert[date_str], date_format)
+
+        issue_collection.update_one(search, {"$set": issue_to_insert}, upsert=True)
+
     tqdm.write("Issue data extracted to JSON")
     return json_data
 
 
-def retrieve_pull_requests(repo, num_weeks):
+def retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, client, date_format="%Y-%m-%dT%H:%M:%S%z"):
     """
-    Retrieves a repository's pull requests from the github API
+    Retrieves a repository's pull requests from the github API. Due the the very slow process of retrieving pull
+    requests from the github API, any pull requests that are extracted will be stored in mongodb so that they do not
+    need to be retrieved from the github API in following pipeline runs. This function checks if there are any pull
+    requests (within the relevant time period) already in mongodb and then retrieves pull requests from the github API
+    using the appropriate cut off date based on the most recently updated pull request found in mongodb.
+    :param repo_owner: the owner of the repository
+    :param repo_name: the name of the repository
     :param repo: the repo object (from perceval)
-    :param num_weeks: the number of weeks to retrieve
-    :return: the json object containing the pull requests in the last num_weeks weeks
+    :param num_weeks: the number of weeks from the current date to retrieve issues from
+    :param client: the MongoClient object from PyMongo
+    :param date_format: the date format to use when representing dates as strings
+    :return: the json object with the pull request data for the last num_weeks weeks
     """
+    db = client["test_db"]
+    pr_collection = db["pull_requests"]
     json_data = {}
 
     current_date = datetime.now(timezone.utc)
     cut_off_date = datetime.now(timezone.utc) - timedelta(weeks=num_weeks)
+
+    most_recent_update = None
+
+    # retrieve any pull requests already stored in the database
+    for db_pull_request in pr_collection.find({"name": repo_name, "owner": repo_owner,
+                                               "updated_at": {"$gt": cut_off_date}},
+                                              {"_id": 0, "name": 0, "owner": 0}):
+        if most_recent_update is None:
+            most_recent_update = db_pull_request["updated_at"]
+        else:
+            if db_pull_request["updated_at"] > most_recent_update:
+                most_recent_update = db_pull_request["updated_at"]
+
+        for date_str in ["created_at", "closed_at", "updated_at", "merged_at"]:
+            if db_pull_request[date_str] is not None:
+                if db_pull_request[date_str] != "None":
+                    db_pull_request[date_str] = db_pull_request[date_str].strftime(date_format)
+        json_data[db_pull_request["id"]] = db_pull_request
+
+    tqdm.write(f"There were {len(json_data.keys())} relevant issues already found in the database")
+
+    # get the new cut off date (if there were pull requests already in the database)
+    if most_recent_update is not None:
+        cut_off_date = most_recent_update
+
+    tqdm.write(f"Finding github issues since {cut_off_date.strftime(date_format)}")
 
     for item in tqdm(
             repo.fetch(from_date=cut_off_date, to_date=current_date, category="pull_request"),
@@ -142,6 +231,7 @@ def retrieve_pull_requests(repo, num_weeks):
         json_data[num]['state'] = item['data']['state']
         json_data[num]['created_at'] = item['data']['created_at']
         json_data[num]['closed_at'] = item['data']['closed_at']
+        json_data[num]['updated_at'] = item['data']['updated_at']
         json_data[num]['submitted_at'] = []
         if item['data']['reviews_data']:
             for c in item['data']['reviews_data']:
@@ -165,6 +255,21 @@ def retrieve_pull_requests(repo, num_weeks):
                 if c['user_data']:
                     json_data[num]['reviewer'].append({'user': c['user_data']['login']})
 
+        search = {
+            "name": repo_name,
+            "owner": repo_owner,
+            "id": num
+        }
+
+        # add the pull request data to the database
+        pr_to_insert = json_data[num].copy()
+        for date_str in ["created_at", "closed_at", "updated_at", "merged_at"]:
+            if pr_to_insert[date_str] is not None:
+                if pr_to_insert[date_str] != "None":
+                    pr_to_insert[date_str] = datetime.strptime(pr_to_insert[date_str], date_format)
+
+        pr_collection.update_one(search, {"$set": pr_to_insert}, upsert=True)
+
     tqdm.write("Pull Request data extracted to JSON")
     return json_data
 
@@ -186,12 +291,13 @@ def retrieve_commits(repo_instance):
     return commit_list
 
 
-def generate_heatmap_data(repo_owner, repo_name, repo_instance, dimensions=(19, 8)):
+def generate_heatmap_data(repo_owner, repo_name, repo_instance, mongo_client, dimensions=(19, 8)):
     """
     Generates the heatmap data. The data includes metrics for issues, pull requests and commit frequency.
     :param repo_owner: the owner of the repository
     :param repo_name: the name of the repository
     :param repo_instance: the local git Repo object
+    :param mongo_client: the MongoClient object from PyMongo
     :param dimensions: the dimensions of the heatmap to generate (width, height)
     :return: an array containing the necessary data for the heatmap
     """
@@ -201,7 +307,7 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, dimensions=(19, 
 
     results = []
 
-    tokens = [ACCESS_TOKEN, ACCESS_TOKEN2]
+    tokens = ACCESS_TOKENS
     tokens = [token for token in tokens if token is not None]
 
     repo = GitHub(
@@ -212,8 +318,8 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, dimensions=(19, 
         sleep_time=300
     )
 
-    issues = retrieve_issues(repo, num_weeks)
-    pull_requests = retrieve_pull_requests(repo, num_weeks)
+    issues = retrieve_issues(repo_owner, repo_name, repo, num_weeks, mongo_client)
+    pull_requests = retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, mongo_client)
     commits = retrieve_commits(repo_instance)
 
     for start_of_week, end_of_week in date_span(start_date, end_date):

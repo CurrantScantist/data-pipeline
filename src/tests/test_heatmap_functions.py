@@ -120,7 +120,21 @@ def test_retrieve_issues():
     repo = MagicMock()
     repo.fetch = MagicMock(return_value=issues)
 
-    data = generate_heatmap_data.retrieve_issues(repo, 1)
+    mock_collection = MagicMock()
+    mock_collection.find = MagicMock(return_value={})
+    mock_collection.update_one = MagicMock(return_value={})
+    mock_client = {
+        'test_db': {
+            'issues': mock_collection
+        }
+    }
+    owner = "owner"
+    name = "name"
+
+    data = generate_heatmap_data.retrieve_issues(owner, name, repo, 1, mock_client)
+
+    mock_client['test_db']['issues'].find.assert_called_once()
+
     assert data == {
         "1": {
             "user": "user_a",
@@ -159,7 +173,20 @@ def test_retrieve_pull_requests():
     with open(os.path.join(current_dir, 'pull_request_results.json'), 'r') as file:
         expected_data = json.load(file)
 
-    actual_data = generate_heatmap_data.retrieve_pull_requests(repo, 1)
+    mock_collection = MagicMock()
+    mock_collection.find = MagicMock(return_value={})
+    mock_collection.update_one = MagicMock(return_value={})
+    mock_client = {
+        'test_db': {
+            'pull_requests': mock_collection
+        }
+    }
+    owner = "owner"
+    name = "name"
+
+    actual_data = generate_heatmap_data.retrieve_pull_requests(owner, name, repo, 1, mock_client)
+
+    mock_client['test_db']['pull_requests'].find.assert_called_once()
 
     assert actual_data == expected_data
 
