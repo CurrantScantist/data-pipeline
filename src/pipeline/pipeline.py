@@ -6,27 +6,119 @@ import re
 import ssl
 import subprocess
 import time
+import logging
+import platform
 
 import git
 import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from tqdm.auto import tqdm
+import coloredlogs
+import colorama
 
 from .sca_helpers import collect_scantist_sca_data
 from .exceptions import HTTPError, RemoteRepoNotFoundError, InvalidArgumentError
 from .generate_heatmap_data import generate_heatmap_data, push_heatmap_data_to_mongodb
 from .colours import generate_repository_colours
 
+colorama.init(autoreset=True)
 load_dotenv()
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
 CONNECTION_STRING = os.environ.get('CONNECTION_STRING')
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPOS_DIR = os.path.join(CURRENT_DIR, "tmp")
+LOGS_DIR = os.path.join(CURRENT_DIR, "logs")
 
 if not os.path.exists(REPOS_DIR):
     os.mkdir(REPOS_DIR)
+
+if not os.path.exists(LOGS_DIR):
+    os.mkdir(LOGS_DIR)
+
+CURRENT_DATETIME = datetime.datetime.now()
+MONTH_LOG_DIR = os.path.join(LOGS_DIR, CURRENT_DATETIME.strftime("%Y-%m"))
+
+if not os.path.exists(MONTH_LOG_DIR):
+    os.mkdir(MONTH_LOG_DIR)
+
+CURRENT_LOG_DIR = os.path.join(MONTH_LOG_DIR, CURRENT_DATETIME.strftime("%Y-%m-%dT%H-%M-%S%z"))
+
+if not os.path.exists(CURRENT_LOG_DIR):
+    os.mkdir(CURRENT_LOG_DIR)
+
+
+"""
+Logging file structure
+
+logs/
+        2021-09/
+                    2021-09-21-T14:42:54Z/
+                                            vuejs-vue [ERROR].log
+                                            tqdm-tqdm [SUCCESS].log
+
+"""
+
+
+class TqdmLoggingHandler(logging.Handler):
+    def __init__(self, level=logging.NOTSET):
+        super().__init__(level)
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            tqdm.write(msg)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+
+class HostnameFilter(logging.Filter):
+    hostname = platform.node()
+
+    def filter(self, record):
+        record.hostname = HostnameFilter.hostname
+        return True
+
+handler = logging.StreamHandler()
+handler.addFilter(HostnameFilter())
+handler.setFormatter(logging.Formatter('%(asctime)s %(hostname)s: %(message)s', datefmt='%b %d %H:%M:%S'))
+
+
+
+def get_logger(repo_owner, repo_name):
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+
+    # file handler
+    file = logging.FileHandler(os.path.join(CURRENT_LOG_DIR, f"{repo_owner}-{repo_name}.log"))
+    file.addFilter(HostnameFilter())
+    file_format = logging.Formatter("%(asctime)s [%(hostname)s] %(levelname)s:%(message)s")
+    file.setLevel(logging.INFO)
+    file.setFormatter(file_format)
+
+    # stream handler
+    stream = logging.StreamHandler()
+    stream = TqdmLoggingHandler()
+    stream.addFilter(HostnameFilter())
+    stream_format = logging.Formatter(f"{colorama.Fore.GREEN}%(asctime)s "
+                                      f"{colorama.Fore.LIGHTMAGENTA_EX}[%(hostname)s] "
+                                      f"{colorama.Fore.LIGHTMAGENTA_EX}%(funcName)s() "
+                                      f"{colorama.Fore.LIGHTCYAN_EX}%(levelname)s: "
+                                      f"{colorama.Fore.WHITE}%(message)s")
+    stream.setLevel(logging.INFO)
+    stream.setFormatter(stream_format)
+
+    logger.addHandler(file)
+    logger.addHandler(stream)
+
+    # coloredlogs.install(level=logging.INFO, logger=logger, isatty=True)
+
+    # TODO:
+    # https://stackoverflow.com/questions/38543506/change-logging-print-function-to-tqdm-write-so-logging-doesnt-interfere-wit
+
+    return logger
 
 
 class Progress(git.RemoteProgress):
@@ -390,10 +482,14 @@ def process_repository(repo_str):
 
     repo_owner, repo_name = repo_str.split("/")
 
-    tqdm.write(f"Running pipeline process for repository: {repo_str}")
+    logger = get_logger(repo_owner, repo_name)
+
+    # tqdm.write(f"Running pipeline process for repository: {repo_str}")
+    logger.info(f"Running pipeline process for repository: {repo_str}")
 
     # get repository metadata from the github API
-    tqdm.write("Retrieving repository metadata from the Github REST API")
+    # tqdm.write("Retrieving repository metadata from the Github REST API")
+    logger.info("Retrieving repository metadata from the Github REST API")
     try:
         data = get_repository_metadata(repo_owner, repo_name)
     except RemoteRepoNotFoundError as e:
@@ -404,10 +500,12 @@ def process_repository(repo_str):
 
     # check if repository is already cloned locally
     if check_local_repo_exists(repo_name):
-        tqdm.write("using cached repository")
+        # tqdm.write("using cached repository")
+        logger.info("using cached repository")
         repo = git.Repo(repo_path)
     else:
-        tqdm.write("cloning repository...")
+        # tqdm.write("cloning repository...")
+        logger.info("cloning repository...")
         repo = clone_repo(repo_owner, repo_name)
 
     # get the mongoDB client
@@ -424,7 +522,8 @@ def process_repository(repo_str):
 
     # get the tags from the repository
     tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
-    tqdm.write(f"There were {len(tags)} tags found in the repository")
+    # tqdm.write(f"There were {len(tags)} tags found in the repository")
+    logger.info(f"There were {len(tags)} tags found in the repository")
 
     # adding some tag related information to the repository metadata
     data["num_tags"] = len(tags)
@@ -435,7 +534,8 @@ def process_repository(repo_str):
 
     # reducing the number of tags
     tags = reduce_releases(tags, max_releases=30)
-    tqdm.write(f"number of tags reduced to: {len(tags)}")
+    # tqdm.write(f"number of tags reduced to: {len(tags)}")
+    logger.info(f"number of tags reduced to: {len(tags)}")
 
     g = git.Git(repo_path)  # initialise git in order to checkout each tag
     tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
@@ -445,14 +545,17 @@ def process_repository(repo_str):
         tag_loop.set_description(f"processing tag: {tag}")
         tag_loop.refresh()
 
-        tqdm.write(f"checking out tag: {tag}")
+        # tqdm.write(f"checking out tag: {tag}")
+        logger.info(f"checking out tag: {tag}")
         g.checkout(tag_name)
 
-        tqdm.write(f"counting LOC for tag: {tag}")
+        # tqdm.write(f"counting LOC for tag: {tag}")
+        logger.info(f"counting LOC for tag: {tag}")
         # calling the 'cloc' command line tool to count LOC statistics for the repository
         tag_data = call_cloc(repo_path)  # this data can possibly be used later on
 
-        tqdm.write("pushing to mongodb...")
+        # tqdm.write("pushing to mongodb...")
+        logger.info("pushing to mongodb...")
         push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
 
     # push the repository data to mongoDB
