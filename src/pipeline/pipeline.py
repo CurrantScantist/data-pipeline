@@ -554,7 +554,7 @@ def process_repository(repo_str):
 
     try:
         logger.info("Collecting SCA data")
-        collect_scantist_sca_data(REPOS_DIR, repo_path, repo_owner, repo_name, mongo_client)
+        collect_scantist_sca_data(REPOS_DIR, repo_path, repo_owner, repo_name, mongo_client, logger)
     except Exception as err:
         logger.error(err)
 
