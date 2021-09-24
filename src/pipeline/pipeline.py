@@ -14,7 +14,6 @@ import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from tqdm.auto import tqdm
-import coloredlogs
 import colorama
 
 from .sca_helpers import collect_scantist_sca_data
@@ -82,11 +81,6 @@ class HostnameFilter(logging.Filter):
         record.hostname = HostnameFilter.hostname
         return True
 
-handler = logging.StreamHandler()
-handler.addFilter(HostnameFilter())
-handler.setFormatter(logging.Formatter('%(asctime)s %(hostname)s: %(message)s', datefmt='%b %d %H:%M:%S'))
-
-
 
 def get_logger(repo_owner, repo_name):
     logger = logging.getLogger(__name__)
@@ -100,11 +94,10 @@ def get_logger(repo_owner, repo_name):
     file.setFormatter(file_format)
 
     # stream handler
-    stream = logging.StreamHandler()
     stream = TqdmLoggingHandler()
     stream.addFilter(HostnameFilter())
     stream_format = logging.Formatter(f"{colorama.Fore.GREEN}%(asctime)s "
-                                      f"{colorama.Fore.LIGHTMAGENTA_EX}[%(hostname)s] "
+                                      f"{colorama.Fore.LIGHTMAGENTA_EX}[%(module)s] "
                                       f"{colorama.Fore.LIGHTMAGENTA_EX}%(funcName)s() "
                                       f"{colorama.Fore.LIGHTCYAN_EX}%(levelname)s: "
                                       f"{colorama.Fore.WHITE}%(message)s")
@@ -114,11 +107,6 @@ def get_logger(repo_owner, repo_name):
     logger.addHandler(file)
     logger.addHandler(stream)
 
-    # coloredlogs.install(level=logging.INFO, logger=logger, isatty=True)
-
-    # TODO:
-    # https://stackoverflow.com/questions/38543506/change-logging-print-function-to-tqdm-write-so-logging-doesnt-interfere-wit
-
     return logger
 
 
@@ -126,9 +114,12 @@ class Progress(git.RemoteProgress):
     """
     Class for showing progress to the console while a repository is cloning locally
     """
+    def __init__(self, logger):
+        super().__init__()
+        self.logger = logger
 
     def update(self, op_code, cur_count, max_count=None, message=''):
-        tqdm.write(self._cur_line)
+        self.logger.info(self._cur_line)
 
 
 def get_releases(repo_owner, repo_name):
@@ -196,9 +187,10 @@ def is_valid_repo_name(repo_str):
     return bool(re.fullmatch(repo_url_pattern, repo_str))
 
 
-def clone_repo(repo_owner, repo_name, print_progress=True):
+def clone_repo(repo_owner, repo_name, logger, print_progress=True):
     """
     Clones a github repository locally
+    :param logger: The logger object to use for logging information
     :param print_progress: True for printing cloning progress to the console, False for no printing
     :param repo_name: the name of the repository. Eg, 'react'
     :param repo_owner: the owner of the repository. Eg, 'facebook'
@@ -206,7 +198,7 @@ def clone_repo(repo_owner, repo_name, print_progress=True):
     """
     remote_url = f"https://github.com/{repo_owner}/{repo_name}.git"
     repo_path = os.path.join(REPOS_DIR, repo_name)
-    repo = git.Repo.clone_from(remote_url, repo_path, progress=Progress() if print_progress else None)
+    repo = git.Repo.clone_from(remote_url, repo_path, progress=Progress(logger) if print_progress else None)
 
     return repo
 
@@ -485,45 +477,43 @@ def process_repository(repo_str):
 
     logger = get_logger(repo_owner, repo_name)
 
-    # tqdm.write(f"Running pipeline process for repository: {repo_str}")
     logger.info(f"Running pipeline process for repository: {repo_str}")
 
     # get repository metadata from the github API
-    # tqdm.write("Retrieving repository metadata from the Github REST API")
     logger.info("Retrieving repository metadata from the Github REST API")
     try:
         data = get_repository_metadata(repo_owner, repo_name)
     except RemoteRepoNotFoundError as e:
-        tqdm.write(e.message)
+        logging.error(e)
         return
 
     repo_path = os.path.join(REPOS_DIR, repo_name)
 
     # check if repository is already cloned locally
     if check_local_repo_exists(repo_name):
-        # tqdm.write("using cached repository")
         logger.info("using cached repository")
         repo = git.Repo(repo_path)
     else:
-        # tqdm.write("cloning repository...")
         logger.info("cloning repository...")
-        repo = clone_repo(repo_owner, repo_name)
+        repo = clone_repo(repo_owner, repo_name, logger)
 
     # get the mongoDB client
     mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
 
-    tqdm.write("calculating commits per author data")
+    logger.info("calculating commits per author data")
     data['commits_per_author'] = get_commits_per_author(repo)
 
-    tqdm.write("calculating commits per month")
+    logger.info("calculating commits per month")
     data['commits_per_month'] = get_monthly_commit_data(repo)
 
-    heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo)
+    logger.info("Generating heatmap data")
+    heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo, mongo_client)
+
+    logger.info("Pushing heatmap data to mongodb")
     push_heatmap_data_to_mongodb(repo_owner, repo_name, heatmap_data, mongo_client)
 
     # get the tags from the repository
     tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
-    # tqdm.write(f"There were {len(tags)} tags found in the repository")
     logger.info(f"There were {len(tags)} tags found in the repository")
 
     # adding some tag related information to the repository metadata
@@ -535,7 +525,6 @@ def process_repository(repo_str):
 
     # reducing the number of tags
     tags = reduce_releases(tags, max_releases=30)
-    # tqdm.write(f"number of tags reduced to: {len(tags)}")
     logger.info(f"number of tags reduced to: {len(tags)}")
 
     g = git.Git(repo_path)  # initialise git in order to checkout each tag
@@ -546,33 +535,33 @@ def process_repository(repo_str):
         tag_loop.set_description(f"processing tag: {tag}")
         tag_loop.refresh()
 
-        # tqdm.write(f"checking out tag: {tag}")
         logger.info(f"checking out tag: {tag}")
         g.checkout(tag_name)
 
-        # tqdm.write(f"counting LOC for tag: {tag}")
         logger.info(f"counting LOC for tag: {tag}")
         # calling the 'cloc' command line tool to count LOC statistics for the repository
         tag_data = call_cloc(repo_path)  # this data can possibly be used later on
 
-        # tqdm.write("pushing to mongodb...")
         logger.info("pushing to mongodb...")
         push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
 
-    tqdm.write("Updating the LOC data to limit the number of languages")
+    logger.info("Updating the LOC data to limit the number of languages")
     limit_languages_for_repository(repo_owner, repo_name, mongo_client)
 
     # push the repository data to mongoDB
-    tqdm.write("Pushing repository data to mongoDB")
+    logger.info("Pushing repository data to mongoDB")
     push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
 
-    tqdm.write("Collecting SCA data")
-    collect_scantist_sca_data(REPOS_DIR, repo_path, repo_owner, repo_name, mongo_client)
+    try:
+        logger.info("Collecting SCA data")
+        collect_scantist_sca_data(REPOS_DIR, repo_path, repo_owner, repo_name, mongo_client)
+    except Exception as err:
+        logger.error(err)
 
-    tqdm.write("Generating dynamic colours for the repository")
+    logger.info("Generating dynamic colours for the repository")
     generate_repository_colours(repo_owner, repo_name, mongo_client)
 
     repo.close()
     time.sleep(2)  # to wait for the previous git related processes to release the repository
-    tqdm.write("deleting local repository...")
+    logger.info("deleting local repository...")
     clean_up_repo(repo_name)
