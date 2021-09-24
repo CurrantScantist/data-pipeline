@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from perceval.backends.core.github import GitHub
 from tqdm import tqdm
+from bson.codec_options import CodecOptions
 
 load_dotenv()
 ACCESS_TOKENS = [os.environ.get('ACCESS_TOKEN')]
@@ -101,7 +102,7 @@ def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format=
     :return: the json object with the issue data for the last num_weeks weeks
     """
     db = client["test_db"]
-    issue_collection = db["issues"]
+    issue_collection = db["issues"].with_options(codec_options=CodecOptions(tz_aware=True, tzinfo=timezone.utc))
     json_data = {}
 
     current_date = datetime.now(timezone.utc)
@@ -182,7 +183,7 @@ def retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, client, date_
     :return: the json object with the pull request data for the last num_weeks weeks
     """
     db = client["test_db"]
-    pr_collection = db["pull_requests"]
+    pr_collection = db["pull_requests"].with_options(codec_options=CodecOptions(tz_aware=True, tzinfo=timezone.utc))
     json_data = {}
 
     current_date = datetime.now(timezone.utc)
@@ -219,9 +220,6 @@ def retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, client, date_
             desc="fetching pull request data"):
 
         if 'pull_request' in item['data']:
-            print("the random if statement is actually triggering")
-            with open('random_data.json', 'w') as file:
-                json.dump(item, file, indent=4)
             continue
 
         num = str(item['data']['number'])
