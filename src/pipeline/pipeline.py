@@ -86,6 +86,9 @@ def get_logger(repo_owner, repo_name):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
+    if logger.hasHandlers():
+        logger.handlers = []
+
     # file handler
     file = logging.FileHandler(os.path.join(CURRENT_LOG_DIR, f"{repo_owner}-{repo_name}.log"))
     file.addFilter(HostnameFilter())
@@ -119,7 +122,7 @@ class Progress(git.RemoteProgress):
         self.logger = logger
 
     def update(self, op_code, cur_count, max_count=None, message=''):
-        self.logger.info(self._cur_line)
+        self.logger.debug(self._cur_line)
 
 
 def get_releases(repo_owner, repo_name):
