@@ -190,10 +190,10 @@ def is_valid_repo_name(repo_str):
 def clone_repo(repo_owner, repo_name, logger, print_progress=True):
     """
     Clones a github repository locally
-    :param logger: The logger object to use for logging information
     :param print_progress: True for printing cloning progress to the console, False for no printing
     :param repo_name: the name of the repository. Eg, 'react'
     :param repo_owner: the owner of the repository. Eg, 'facebook'
+    :param logger: The logger object to use for logging information
     :return: repo: the Repo type from gitPython
     """
     remote_url = f"https://github.com/{repo_owner}/{repo_name}.git"
@@ -507,7 +507,7 @@ def process_repository(repo_str):
     data['commits_per_month'] = get_monthly_commit_data(repo)
 
     logger.info("Generating heatmap data")
-    heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo, mongo_client)
+    heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo, mongo_client, logger)
 
     logger.info("Pushing heatmap data to mongodb")
     push_heatmap_data_to_mongodb(repo_owner, repo_name, heatmap_data, mongo_client)
