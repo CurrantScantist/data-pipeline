@@ -1,1 +1,11 @@
+Popmotion/popmotion
+jorgebucaran/hyperapp
 tqdm/tqdm
+tornadoweb/tornado
+labstack/echo
+kataras/iris
+alvarotrigo/fullPage.js
+Marak/faker.js
+hexojs/hexo
+pixijs/pixijs
+tiangolo/fastapi

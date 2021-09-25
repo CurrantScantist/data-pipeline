@@ -73,13 +73,15 @@ def generate_repository_colours(repo_owner, repo_name, mongo_client, repo=None):
 
     # update the licenses
     if "license" in repo.keys():
-        license_name = repo["license"]["name"]
-        license_colours[license_name] = get_colour_from_string(license_name)
+        if repo["license"] is not None:
+            license_name = repo["license"]["name"]
+            license_colours[license_name] = get_colour_from_string(license_name)
 
     if "nodelink_data" in repo.keys():
-        licenses = [obj["name"] for obj in repo["nodelink_data"]["categories"]]
-        for license_name in licenses:
-            license_colours[license_name] = get_colour_from_string(license_name)
+        if repo["nodelink_data"] is not None:
+            licenses = [obj["name"] for obj in repo["nodelink_data"]["categories"]]
+            for license_name in licenses:
+                license_colours[license_name] = get_colour_from_string(license_name)
 
     new_data["license_colours"] = license_colours
 
