@@ -539,7 +539,7 @@ def process_repository(repo_str):
         tag_loop.refresh()
 
         logger.info(f"checking out tag: {tag}")
-        g.checkout(tag_name)
+        g.checkout(tag_name, force=True)
 
         logger.info(f"counting LOC for tag: {tag}")
         # calling the 'cloc' command line tool to count LOC statistics for the repository
