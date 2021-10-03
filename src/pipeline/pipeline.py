@@ -37,17 +37,6 @@ if not os.path.exists(REPOS_DIR):
 if not os.path.exists(LOGS_DIR):
     os.mkdir(LOGS_DIR)
 
-CURRENT_DATETIME = datetime.datetime.now()
-MONTH_LOG_DIR = os.path.join(LOGS_DIR, CURRENT_DATETIME.strftime("%Y-%m"))
-
-if not os.path.exists(MONTH_LOG_DIR):
-    os.mkdir(MONTH_LOG_DIR)
-
-CURRENT_LOG_DIR = os.path.join(MONTH_LOG_DIR, CURRENT_DATETIME.strftime("%Y-%m-%dT%H-%M-%S%z"))
-
-if not os.path.exists(CURRENT_LOG_DIR):
-    os.mkdir(CURRENT_LOG_DIR)
-
 
 class TqdmLoggingHandler(logging.Handler):
     """
@@ -153,6 +142,17 @@ def get_logger(repo_owner, repo_name):
     :param repo_name: the name of the repository, eg. 'react'
     :return: the custom logger object (logging.Logger)
     """
+    current_datetime = datetime.datetime.now()
+    month_log_dir = os.path.join(LOGS_DIR, current_datetime.strftime("%Y-%m"))
+
+    if not os.path.exists(month_log_dir):
+        os.mkdir(month_log_dir)
+
+    current_log_dir = os.path.join(month_log_dir, current_datetime.strftime("%Y-%m-%dT%H-%M-%S%z"))
+
+    if not os.path.exists(current_log_dir):
+        os.mkdir(current_log_dir)
+
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
@@ -160,7 +160,7 @@ def get_logger(repo_owner, repo_name):
         logger.handlers = []
 
     # file handler
-    file = CustomFileHandler(os.path.join(CURRENT_LOG_DIR, f"{repo_owner}-{repo_name}.log"))
+    file = CustomFileHandler(os.path.join(current_log_dir, f"{repo_owner}-{repo_name}.log"))
 
     # stream handler
     stream = TqdmLoggingHandler()
