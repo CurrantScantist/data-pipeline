@@ -48,23 +48,21 @@ CURRENT_LOG_DIR = os.path.join(MONTH_LOG_DIR, CURRENT_DATETIME.strftime("%Y-%m-%
 if not os.path.exists(CURRENT_LOG_DIR):
     os.mkdir(CURRENT_LOG_DIR)
 
-"""
-Logging file structure
-
-logs/
-        2021-09/
-                    2021-09-21-T14:42:54Z/
-                                            vuejs-vue [ERROR].log
-                                            tqdm-tqdm [SUCCESS].log
-
-"""
-
 
 class TqdmLoggingHandler(logging.Handler):
+    """
+    Custom stream handler to allow the console progress bars from the tqdm package to work alongside python logging.
+    """
     def __init__(self, level=logging.NOTSET):
         super().__init__(level)
 
     def emit(self, record):
+        """
+        Override of the Handler.emit method. This new method prints the message using the 'write()' function provided
+        by tqdm so that the tqdm progress bars still work properly.
+        :param record: the LogRecord object from the logging library
+        :return: None
+        """
         try:
             msg = self.format(record)
             tqdm.write(msg)
@@ -74,19 +72,37 @@ class TqdmLoggingHandler(logging.Handler):
 
 
 class HostnameFilter(logging.Filter):
+    """
+    Custom filter for logging. This filter allows the hostname of the device that is running the pipeline to be added to
+    the logging output
+    """
     hostname = platform.node()
 
     def filter(self, record):
+        """
+        Override of the logging.Filter.filter() method
+        :param record: the LogRecord object from the logging package
+        :return: "Returns True if the record should be logged, or False otherwise." (from the logging documentation)
+        """
         record.hostname = HostnameFilter.hostname
         return True
 
 
 class CustomLogger(logging.Logger):
+    """
+    Custom Logger class that performs extra actions when an exception is logged. Specifically an exception will trigger
+    the log files (if any) to be renamed so that "[ERROR]" is appended to the name of the log file. This is for greater
+    readability when looking at the log files from a file system.
+    """
     def __init__(self, name):
         super(CustomLogger, self).__init__(name)
         self.exception_has_occurred = False
 
     def exception(self, msg, *args, exc_info=..., stack_info=..., stacklevel=..., extra=..., **kwargs):
+        """
+        Override of the exception method of the logging.Logger class. This new method will rename the log files (if any)
+        to include "[ERROR]" in the file name for greater visibility.
+        """
         if not self.exception_has_occurred:
             # rename the log files
             file_handlers = [h for h in self.handlers if isinstance(h, logging.FileHandler)]
@@ -116,6 +132,9 @@ logging.setLoggerClass(CustomLogger)
 
 
 class CustomFileHandler(logging.FileHandler):
+    """
+    Wrapper for the logging.FileHandler function to update the filehandler with filtering options and similar
+    """
     def __init__(self, filename):
         super().__init__(filename)
         self.addFilter(HostnameFilter())
@@ -125,6 +144,15 @@ class CustomFileHandler(logging.FileHandler):
 
 
 def get_logger(repo_owner, repo_name):
+    """
+    Generates a custom logger object from the python logging package for a particular repository. The logging output is
+    redirected to both a log file for the repository and to the terminal. The terminal logging output uses colour to
+    help with readability. The log file will be renamed from something like "vuejs-vue.log" to "vuejs-vue [ERROR].log"
+    if any exceptions occur when processing that repository.
+    :param repo_owner: the owner of the repository, eg. 'facebook'
+    :param repo_name: the name of the repository, eg. 'react'
+    :return: the custom logger object (logging.Logger)
+    """
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
@@ -132,7 +160,6 @@ def get_logger(repo_owner, repo_name):
         logger.handlers = []
 
     # file handler
-    # file = logging.FileHandler(os.path.join(CURRENT_LOG_DIR, f"{repo_owner}-{repo_name}.log"))
     file = CustomFileHandler(os.path.join(CURRENT_LOG_DIR, f"{repo_owner}-{repo_name}.log"))
 
     # stream handler
@@ -148,7 +175,6 @@ def get_logger(repo_owner, repo_name):
 
     logger.addHandler(file)
     logger.addHandler(stream)
-
     return logger
 
 
