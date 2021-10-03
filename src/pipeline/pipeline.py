@@ -1,26 +1,26 @@
 import datetime
 import json
+import logging
 import math
 import os
+import platform
 import re
 import ssl
 import subprocess
 import time
-import logging
-import platform
 
+import colorama
 import git
 import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from tqdm.auto import tqdm
-import colorama
 
-from .sca_helpers import collect_scantist_sca_data
+from .colours import generate_repository_colours
 from .exceptions import HTTPError, RemoteRepoNotFoundError, InvalidArgumentError
 from .generate_heatmap_data import generate_heatmap_data, push_heatmap_data_to_mongodb
 from .limit_languages import limit_languages_for_repository
-from .colours import generate_repository_colours
+from .sca_helpers import collect_scantist_sca_data
 
 colorama.init(autoreset=True)
 load_dotenv()
@@ -47,7 +47,6 @@ CURRENT_LOG_DIR = os.path.join(MONTH_LOG_DIR, CURRENT_DATETIME.strftime("%Y-%m-%
 
 if not os.path.exists(CURRENT_LOG_DIR):
     os.mkdir(CURRENT_LOG_DIR)
-
 
 """
 Logging file structure
@@ -82,6 +81,49 @@ class HostnameFilter(logging.Filter):
         return True
 
 
+class CustomLogger(logging.Logger):
+    def __init__(self, name):
+        super(CustomLogger, self).__init__(name)
+        self.exception_has_occurred = False
+
+    def exception(self, msg, *args, exc_info=..., stack_info=..., stacklevel=..., extra=..., **kwargs):
+        if not self.exception_has_occurred:
+            # rename the log files
+            file_handlers = [h for h in self.handlers if isinstance(h, logging.FileHandler)]
+
+            for file_handler in file_handlers:
+                # get log file name
+                base_file = os.path.splitext(file_handler.baseFilename)[0]
+                new_file = f"{base_file} [ERROR].log"
+
+                # delete handler
+                file_handler.close()
+                self.removeHandler(file_handler)
+
+                # rename the log file
+                os.rename(file_handler.baseFilename, new_file)
+
+                # create new file handler
+                new_handler = CustomFileHandler(new_file)
+                self.addHandler(new_handler)
+
+            self.exception_has_occurred = True
+
+        super(CustomLogger, self).exception(msg)
+
+
+logging.setLoggerClass(CustomLogger)
+
+
+class CustomFileHandler(logging.FileHandler):
+    def __init__(self, filename):
+        super().__init__(filename)
+        self.addFilter(HostnameFilter())
+        file_format = logging.Formatter("%(asctime)s [%(hostname)s] %(levelname)s:%(message)s")
+        self.setLevel(logging.INFO)
+        self.setFormatter(file_format)
+
+
 def get_logger(repo_owner, repo_name):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
@@ -90,11 +132,8 @@ def get_logger(repo_owner, repo_name):
         logger.handlers = []
 
     # file handler
-    file = logging.FileHandler(os.path.join(CURRENT_LOG_DIR, f"{repo_owner}-{repo_name}.log"))
-    file.addFilter(HostnameFilter())
-    file_format = logging.Formatter("%(asctime)s [%(hostname)s] %(levelname)s:%(message)s")
-    file.setLevel(logging.INFO)
-    file.setFormatter(file_format)
+    # file = logging.FileHandler(os.path.join(CURRENT_LOG_DIR, f"{repo_owner}-{repo_name}.log"))
+    file = CustomFileHandler(os.path.join(CURRENT_LOG_DIR, f"{repo_owner}-{repo_name}.log"))
 
     # stream handler
     stream = TqdmLoggingHandler()
@@ -117,6 +156,7 @@ class Progress(git.RemoteProgress):
     """
     Class for showing progress to the console while a repository is cloning locally
     """
+
     def __init__(self, logger):
         super().__init__()
         self.logger = logger
@@ -487,7 +527,8 @@ def process_repository(repo_str):
     try:
         data = get_repository_metadata(repo_owner, repo_name)
     except RemoteRepoNotFoundError as e:
-        logging.error(e)
+        logger.exception(str(e))
+        logger.info("Printing after the exception")
         return
 
     repo_path = os.path.join(REPOS_DIR, repo_name)
