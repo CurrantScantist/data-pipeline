@@ -153,7 +153,8 @@ def get_logger(repo_owner, repo_name, start_datetime):
     if not os.path.exists(current_log_dir):
         os.mkdir(current_log_dir)
 
-    logger = logging.getLogger(f"{repo_owner}/{repo_name}")
+    datetime_str = start_datetime.strftime('%Y-%m-%dT%H-%M-%S%z')
+    logger = logging.getLogger(f"{datetime_str}/{repo_owner}/{repo_name}")
     logger.setLevel(logging.DEBUG)
 
     if logger.hasHandlers():
