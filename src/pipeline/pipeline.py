@@ -114,9 +114,8 @@ class CustomLogger(logging.Logger):
         to include "[ERROR]" in the file name for greater visibility.
         """
         if not self.exception_has_occurred:
-            # rename the log files
-            file_handlers = [h for h in self.handlers if isinstance(h, logging.FileHandler)]
 
+            file_handlers = [h for h in self.handlers if isinstance(h, logging.FileHandler)]
             for file_handler in file_handlers:
                 # get log file name
                 base_file = os.path.splitext(file_handler.baseFilename)[0]
@@ -129,7 +128,7 @@ class CustomLogger(logging.Logger):
                 # rename the log file
                 os.rename(file_handler.baseFilename, new_file)
 
-                # create new file handler
+                # create new file handler with new file name
                 new_handler = CustomFileHandler(new_file)
                 self.addHandler(new_handler)
 
@@ -150,10 +149,26 @@ class CustomFileHandler(logging.FileHandler):
         self.setFormatter(file_format)
 
 
+def get_current_repo_log_directory(start_datetime):
+    """
+    Creates the directory to contain the log files for the current run of the pipeline
+    :param start_datetime: the date that the current pipeline run began
+    :return: the directory (str) to contain the log files
+    """
+    month_log_dir = os.path.join(LOGS_DIR, start_datetime.strftime("%Y-%m"))
+    if not os.path.exists(month_log_dir):
+        os.mkdir(month_log_dir)
+    current_log_dir = os.path.join(month_log_dir, start_datetime.strftime("%Y-%m-%dT%H-%M-%S%z"))
+    if not os.path.exists(current_log_dir):
+        os.mkdir(current_log_dir)
+
+    return current_log_dir
+
+
 def get_logger(repo_owner, repo_name, start_datetime):
     """
     Generates a custom logger object from the python logging package for a particular repository. The logging output is
-    redirected to both a log file for the repository and to the terminal. The terminal logging output uses colour to
+    redirected to both a log file for the repository and to the terminal. The terminal logging output uses colours to
     help with readability. The log file will be renamed from something like "vuejs-vue.log" to "vuejs-vue [ERROR].log"
     if any exceptions occur when processing that repository.
     :param repo_owner: the owner of the repository, eg. 'facebook'
@@ -163,15 +178,7 @@ def get_logger(repo_owner, repo_name, start_datetime):
     """
     logging.setLoggerClass(CustomLogger)
 
-    month_log_dir = os.path.join(LOGS_DIR, start_datetime.strftime("%Y-%m"))
-
-    if not os.path.exists(month_log_dir):
-        os.mkdir(month_log_dir)
-
-    current_log_dir = os.path.join(month_log_dir, start_datetime.strftime("%Y-%m-%dT%H-%M-%S%z"))
-
-    if not os.path.exists(current_log_dir):
-        os.mkdir(current_log_dir)
+    current_log_dir = get_current_repo_log_directory(start_datetime)
 
     datetime_str = start_datetime.strftime('%Y-%m-%dT%H-%M-%S%z')
     logger = logging.getLogger(f"{datetime_str}/{repo_owner}/{repo_name}")
@@ -593,6 +600,8 @@ def process_repository(repo_str, start_datetime):
         # get the mongoDB client
         logger.info("connecting to mongodb")
         mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+
+        raise Exception("random exception")
 
         logger.info("calculating commits per author data")
         data['commits_per_author'] = get_commits_per_author(repo)
