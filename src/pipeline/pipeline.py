@@ -550,30 +550,40 @@ def process_repository(repo_str, start_datetime):
 
     logger.info(f"Running pipeline process for repository: {repo_str}")
 
-    # get repository metadata from the github API
-    logger.info("Retrieving repository metadata from the Github REST API")
     try:
-        data = get_repository_metadata(repo_owner, repo_name)
-    except RemoteRepoNotFoundError as e:
-        logger.exception(str(e))
-        logger.info("Printing after the exception")
-        return
+        # get repository metadata from the github API
+        logger.info("Retrieving repository metadata from the Github REST API")
+        try:
+            data = get_repository_metadata(repo_owner, repo_name)
+        except RemoteRepoNotFoundError as e:
+            logger.exception(str(e))
+            return
 
-    repo_path = os.path.join(REPOS_DIR, repo_name)
+        repo_path = os.path.join(REPOS_DIR, repo_name)
 
-    # check if repository is already cloned locally
-    if check_local_repo_exists(repo_name):
-        logger.info("using cached repository")
-        repo = git.Repo(repo_path)
-    else:
+        # check if repository is already cloned locally
+        if check_local_repo_exists(repo_name):
+            logger.info("using cached repository")
+            repo = git.Repo(repo_path)
+        else:
+            logger.info("cloning repository...")
+            repo = clone_repo(repo_owner, repo_name, logger)
+
+        # get the mongoDB client
+        logger.info("connecting to mongodb")
+        mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+
+        logger.info("calculating commits per author data")
+        data['commits_per_author'] = get_commits_per_author(repo)
+
         logger.info("calculating commits per month")
         data['commits_per_month'] = get_monthly_commit_data(repo)
 
         logger.info("Generating heatmap data")
-        # heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo, mongo_client, logger)
+        heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo, mongo_client, logger)
 
         logger.info("Pushing heatmap data to mongodb")
-        # push_heatmap_data_to_mongodb(repo_owner, repo_name, heatmap_data, mongo_client)
+        push_heatmap_data_to_mongodb(repo_owner, repo_name, heatmap_data, mongo_client)
 
         # get the tags from the repository
         tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
