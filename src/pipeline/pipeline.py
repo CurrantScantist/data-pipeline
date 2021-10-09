@@ -132,7 +132,7 @@ class CustomFileHandler(logging.FileHandler):
         self.setFormatter(file_format)
 
 
-def get_logger(repo_owner, repo_name):
+def get_logger(repo_owner, repo_name, start_datetime):
     """
     Generates a custom logger object from the python logging package for a particular repository. The logging output is
     redirected to both a log file for the repository and to the terminal. The terminal logging output uses colour to
@@ -140,20 +140,20 @@ def get_logger(repo_owner, repo_name):
     if any exceptions occur when processing that repository.
     :param repo_owner: the owner of the repository, eg. 'facebook'
     :param repo_name: the name of the repository, eg. 'react'
+    :param start_datetime: the date that the current pipeline run began
     :return: the custom logger object (logging.Logger)
     """
-    current_datetime = datetime.datetime.now()
-    month_log_dir = os.path.join(LOGS_DIR, current_datetime.strftime("%Y-%m"))
+    month_log_dir = os.path.join(LOGS_DIR, start_datetime.strftime("%Y-%m"))
 
     if not os.path.exists(month_log_dir):
         os.mkdir(month_log_dir)
 
-    current_log_dir = os.path.join(month_log_dir, current_datetime.strftime("%Y-%m-%dT%H-%M-%S%z"))
+    current_log_dir = os.path.join(month_log_dir, start_datetime.strftime("%Y-%m-%dT%H-%M-%S%z"))
 
     if not os.path.exists(current_log_dir):
         os.mkdir(current_log_dir)
 
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(f"{repo_owner}/{repo_name}")
     logger.setLevel(logging.DEBUG)
 
     if logger.hasHandlers():
@@ -526,7 +526,7 @@ def reduce_releases(releases, max_releases=15):
     return [first] + good_releases + [last]
 
 
-def process_repository(repo_str):
+def process_repository(repo_str, start_datetime):
     """
     Processes the repository by doing the following:
         - validate the repository input
@@ -536,6 +536,7 @@ def process_repository(repo_str):
         - calculate the LOC data for each tag/release by using a command line tool called 'cloc'
         - push the data to mongodb
     :param repo_str: concatenation of the repository owner and name separated by a '/'. Eg, 'facebook/react'
+    :param start_datetime: the date that the pipeline run began
     :return: None
     """
     if not is_valid_repo_name(repo_str):
@@ -544,7 +545,7 @@ def process_repository(repo_str):
 
     repo_owner, repo_name = repo_str.split("/")
 
-    logger = get_logger(repo_owner, repo_name)
+    logger = get_logger(repo_owner, repo_name, start_datetime)
 
     logger.info(f"Running pipeline process for repository: {repo_str}")
 
@@ -564,74 +565,68 @@ def process_repository(repo_str):
         logger.info("using cached repository")
         repo = git.Repo(repo_path)
     else:
-        logger.info("cloning repository...")
-        repo = clone_repo(repo_owner, repo_name, logger)
+        logger.info("calculating commits per month")
+        data['commits_per_month'] = get_monthly_commit_data(repo)
 
-    # get the mongoDB client
-    mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+        logger.info("Generating heatmap data")
+        # heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo, mongo_client, logger)
 
-    logger.info("calculating commits per author data")
-    data['commits_per_author'] = get_commits_per_author(repo)
+        logger.info("Pushing heatmap data to mongodb")
+        # push_heatmap_data_to_mongodb(repo_owner, repo_name, heatmap_data, mongo_client)
 
-    logger.info("calculating commits per month")
-    data['commits_per_month'] = get_monthly_commit_data(repo)
+        # get the tags from the repository
+        tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
+        logger.info(f"There were {len(tags)} tags found in the repository")
 
-    logger.info("Generating heatmap data")
-    heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo, mongo_client, logger)
+        # adding some tag related information to the repository metadata
+        data["num_tags"] = len(tags)
+        if len(tags) > 0:
+            data["latest_tag"] = tags[-1].name
+        else:
+            data["latest_tag"] = None
 
-    logger.info("Pushing heatmap data to mongodb")
-    push_heatmap_data_to_mongodb(repo_owner, repo_name, heatmap_data, mongo_client)
+        # reducing the number of tags
+        tags = reduce_releases(tags, max_releases=30)
+        logger.info(f"number of tags reduced to: {len(tags)}")
 
-    # get the tags from the repository
-    tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
-    logger.info(f"There were {len(tags)} tags found in the repository")
+        g = git.Git(repo_path)  # initialise git in order to checkout each tag
+        tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
 
-    # adding some tag related information to the repository metadata
-    data["num_tags"] = len(tags)
-    if len(tags) > 0:
-        data["latest_tag"] = tags[-1].name
-    else:
-        data["latest_tag"] = None
+        for tag in tag_loop:
+            tag_name = tag.name
+            tag_loop.set_description(f"processing tag: {tag}")
+            tag_loop.refresh()
 
-    # reducing the number of tags
-    tags = reduce_releases(tags, max_releases=30)
-    logger.info(f"number of tags reduced to: {len(tags)}")
+            logger.info(f"checking out tag: {tag}")
+            g.checkout(tag_name, force=True)
 
-    g = git.Git(repo_path)  # initialise git in order to checkout each tag
-    tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
+            logger.info(f"counting LOC for tag: {tag}")
+            # calling the 'cloc' command line tool to count LOC statistics for the repository
+            tag_data = call_cloc(repo_path)  # this data can possibly be used later on
 
-    for tag in tag_loop:
-        tag_name = tag.name
-        tag_loop.set_description(f"processing tag: {tag}")
-        tag_loop.refresh()
+            logger.info("pushing to mongodb...")
+            push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
 
-        logger.info(f"checking out tag: {tag}")
-        g.checkout(tag_name, force=True)
+        logger.info("Updating the LOC data to limit the number of languages")
+        limit_languages_for_repository(repo_owner, repo_name, mongo_client)
 
-        logger.info(f"counting LOC for tag: {tag}")
-        # calling the 'cloc' command line tool to count LOC statistics for the repository
-        tag_data = call_cloc(repo_path)  # this data can possibly be used later on
+        # push the repository data to mongoDB
+        logger.info("Pushing repository data to mongoDB")
+        push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
 
-        logger.info("pushing to mongodb...")
-        push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
+        try:
+            logger.info("Collecting SCA data")
+            collect_scantist_sca_data(REPOS_DIR, repo_path, repo_owner, repo_name, mongo_client, logger)
+        except Exception as err:
+            logger.exception(err)
 
-    logger.info("Updating the LOC data to limit the number of languages")
-    limit_languages_for_repository(repo_owner, repo_name, mongo_client)
+        logger.info("Generating dynamic colours for the repository")
+        generate_repository_colours(repo_owner, repo_name, mongo_client)
 
-    # push the repository data to mongoDB
-    logger.info("Pushing repository data to mongoDB")
-    push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
+        repo.close()
+        time.sleep(2)  # to wait for the previous git related processes to release the repository
+        logger.info("deleting local repository...")
+        clean_up_repo(repo_name)
 
-    try:
-        logger.info("Collecting SCA data")
-        collect_scantist_sca_data(REPOS_DIR, repo_path, repo_owner, repo_name, mongo_client, logger)
-    except Exception as err:
-        logger.error(err)
-
-    logger.info("Generating dynamic colours for the repository")
-    generate_repository_colours(repo_owner, repo_name, mongo_client)
-
-    repo.close()
-    time.sleep(2)  # to wait for the previous git related processes to release the repository
-    logger.info("deleting local repository...")
-    clean_up_repo(repo_name)
+    except Exception as e:
+        logger.exception(str(e))
