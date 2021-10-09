@@ -601,8 +601,6 @@ def process_repository(repo_str, start_datetime):
         logger.info("connecting to mongodb")
         mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
 
-        raise Exception("random exception")
-
         logger.info("calculating commits per author data")
         data['commits_per_author'] = get_commits_per_author(repo)
 
