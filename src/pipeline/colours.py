@@ -10,7 +10,7 @@ load_dotenv()
 CONNECTION_STRING = os.environ.get('CONNECTION_STRING')
 
 
-def hash_string(key, p=97, m=359):
+def hash_string(key, p=83, m=359):
     """
     Function to hash a string using the universal hash function with the specified parameters.
     :param key: the string to hash
@@ -25,7 +25,7 @@ def hash_string(key, p=97, m=359):
     return res % m
 
 
-def get_colour_from_string(key, saturation=0.65, lightness=0.5):
+def get_colour_from_string(key, saturation=0.65, lightness=0.47):
     """
     Function to take a string and return a hex representation of a colour for it. The hash of the string determines the
     hue and generates the colour in the HSL colour space.
@@ -88,6 +88,7 @@ def generate_repository_colours(repo_owner, repo_name, mongo_client, repo=None):
     # calculate the colours for languages
     repo_languages = set()
 
+    repo_languages.add("Other")
     for release in releases_collection.find(search_dict):
         repo_languages.update(release['LOC'].keys())
     if "SUM" in repo_languages:
