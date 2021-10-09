@@ -77,6 +77,27 @@ class HostnameFilter(logging.Filter):
         return True
 
 
+class RepositoryFilter(logging.Filter):
+    """
+    Custom filter for logging. This filter allows the repository that is currently being processed to be added to the
+    logging output
+    """
+    def __init__(self, repo_owner, repo_name):
+        super().__init__()
+        self.repo_owner = repo_owner
+        self.repo_name = repo_name
+        self.repo_str = f"{repo_owner}/{repo_name}"
+
+    def filter(self, record):
+        """
+        Override of the logging.Filter.filter() method
+        :param record: the LogRecord object from the logging package
+        :return: "Returns True if the record should be logged, or False otherwise." (from the logging documentation)
+        """
+        record.repository = self.repo_str
+        return True
+
+
 class CustomLogger(logging.Logger):
     """
     Custom Logger class that performs extra actions when an exception is logged. Specifically an exception will trigger
@@ -127,7 +148,7 @@ class CustomFileHandler(logging.FileHandler):
     def __init__(self, filename):
         super().__init__(filename)
         self.addFilter(HostnameFilter())
-        file_format = logging.Formatter("%(asctime)s [%(hostname)s] %(levelname)s:%(message)s")
+        file_format = logging.Formatter("%(asctime)s [%(hostname)s] %(funcName)s() %(levelname)s:%(message)s")
         self.setLevel(logging.INFO)
         self.setFormatter(file_format)
 
@@ -166,8 +187,9 @@ def get_logger(repo_owner, repo_name, start_datetime):
     # stream handler
     stream = TqdmLoggingHandler()
     stream.addFilter(HostnameFilter())
+    stream.addFilter(RepositoryFilter(repo_owner, repo_name))
     stream_format = logging.Formatter(f"{colorama.Fore.GREEN}%(asctime)s "
-                                      f"{colorama.Fore.LIGHTMAGENTA_EX}[%(module)s] "
+                                      f"{colorama.Fore.LIGHTRED_EX}[%(repository)s] "
                                       f"{colorama.Fore.LIGHTMAGENTA_EX}%(funcName)s() "
                                       f"{colorama.Fore.LIGHTCYAN_EX}%(levelname)s: "
                                       f"{colorama.Fore.WHITE}%(message)s")
