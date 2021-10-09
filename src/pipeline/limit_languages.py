@@ -55,6 +55,10 @@ def limit_languages_for_repository(repo_owner, repo_name, mongo_client, limit=12
                 for loc_type in ["nFiles", "blank", "comment", "code"]:
                     new_data["Other"][loc_type] += release["LOC"][language][loc_type]
 
+        for language in top_keys:
+            if language not in new_data.keys():
+                new_data[language] = {"nFiles": 0, "blank": 0, "comment": 0, "code": 0}
+
         # validate the new data
         correct_sum = release["LOC"]["SUM"]
         new_sum = {
@@ -95,7 +99,7 @@ def limit_languages_for_current_data():
         "owner": 1
     }
 
-    for repo in tqdm(repo_collection.find({"name": "scrapy"}, projection), desc="Updating LOC data for repositories"):
+    for repo in tqdm(repo_collection.find({}, projection), desc="Updating LOC data for repositories"):
         limit_languages_for_repository(repo["owner"], repo["name"], client)
 
 
