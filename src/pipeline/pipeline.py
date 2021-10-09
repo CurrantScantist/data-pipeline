@@ -138,9 +138,6 @@ class CustomLogger(logging.Logger):
         super(CustomLogger, self).exception(msg)
 
 
-logging.setLoggerClass(CustomLogger)
-
-
 class CustomFileHandler(logging.FileHandler):
     """
     Wrapper for the logging.FileHandler function to update the filehandler with filtering options and similar
@@ -164,6 +161,8 @@ def get_logger(repo_owner, repo_name, start_datetime):
     :param start_datetime: the date that the current pipeline run began
     :return: the custom logger object (logging.Logger)
     """
+    logging.setLoggerClass(CustomLogger)
+
     month_log_dir = os.path.join(LOGS_DIR, start_datetime.strftime("%Y-%m"))
 
     if not os.path.exists(month_log_dir):
