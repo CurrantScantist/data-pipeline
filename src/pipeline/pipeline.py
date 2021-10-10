@@ -1,33 +1,210 @@
 import datetime
 import json
+import logging
 import math
 import os
+import platform
 import re
 import ssl
 import subprocess
 import time
 
+import colorama
 import git
 import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from tqdm.auto import tqdm
 
-from .sca_helpers import collect_scantist_sca_data
+from .colours import generate_repository_colours
 from .exceptions import HTTPError, RemoteRepoNotFoundError, InvalidArgumentError
 from .generate_heatmap_data import generate_heatmap_data, push_heatmap_data_to_mongodb
 from .limit_languages import limit_languages_for_repository
-from .colours import generate_repository_colours
+from .sca_helpers import collect_scantist_sca_data
 
+colorama.init(autoreset=True)
 load_dotenv()
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
 CONNECTION_STRING = os.environ.get('CONNECTION_STRING')
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPOS_DIR = os.path.join(CURRENT_DIR, "tmp")
+LOGS_DIR = os.path.join(CURRENT_DIR, "logs")
 
 if not os.path.exists(REPOS_DIR):
     os.mkdir(REPOS_DIR)
+
+if not os.path.exists(LOGS_DIR):
+    os.mkdir(LOGS_DIR)
+
+
+class TqdmLoggingHandler(logging.Handler):
+    """
+    Custom stream handler to allow the console progress bars from the tqdm package to work alongside python logging.
+    """
+    def __init__(self, level=logging.NOTSET):
+        super().__init__(level)
+
+    def emit(self, record):
+        """
+        Override of the Handler.emit method. This new method prints the message using the 'write()' function provided
+        by tqdm so that the tqdm progress bars still work properly.
+        :param record: the LogRecord object from the logging library
+        :return: None
+        """
+        try:
+            msg = self.format(record)
+            tqdm.write(msg)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+
+class HostnameFilter(logging.Filter):
+    """
+    Custom filter for logging. This filter allows the hostname of the device that is running the pipeline to be added to
+    the logging output
+    """
+    hostname = platform.node()
+
+    def filter(self, record):
+        """
+        Override of the logging.Filter.filter() method
+        :param record: the LogRecord object from the logging package
+        :return: "Returns True if the record should be logged, or False otherwise." (from the logging documentation)
+        """
+        record.hostname = HostnameFilter.hostname
+        return True
+
+
+class RepositoryFilter(logging.Filter):
+    """
+    Custom filter for logging. This filter allows the repository that is currently being processed to be added to the
+    logging output
+    """
+    def __init__(self, repo_owner, repo_name):
+        super().__init__()
+        self.repo_owner = repo_owner
+        self.repo_name = repo_name
+        self.repo_str = f"{repo_owner}/{repo_name}"
+
+    def filter(self, record):
+        """
+        Override of the logging.Filter.filter() method
+        :param record: the LogRecord object from the logging package
+        :return: "Returns True if the record should be logged, or False otherwise." (from the logging documentation)
+        """
+        record.repository = self.repo_str
+        return True
+
+
+class CustomLogger(logging.Logger):
+    """
+    Custom Logger class that performs extra actions when an exception is logged. Specifically an exception will trigger
+    the log files (if any) to be renamed so that "[ERROR]" is appended to the name of the log file. This is for greater
+    readability when looking at the log files from a file system.
+    """
+    def __init__(self, name):
+        super(CustomLogger, self).__init__(name)
+        self.exception_has_occurred = False
+
+    def exception(self, msg, *args, exc_info=..., stack_info=..., stacklevel=..., extra=..., **kwargs):
+        """
+        Override of the exception method of the logging.Logger class. This new method will rename the log files (if any)
+        to include "[ERROR]" in the file name for greater visibility.
+        """
+        if not self.exception_has_occurred:
+
+            file_handlers = [h for h in self.handlers if isinstance(h, logging.FileHandler)]
+            for file_handler in file_handlers:
+                # get log file name
+                base_file = os.path.splitext(file_handler.baseFilename)[0]
+                new_file = f"{base_file} [ERROR].log"
+
+                # delete handler
+                file_handler.close()
+                self.removeHandler(file_handler)
+
+                # rename the log file
+                os.rename(file_handler.baseFilename, new_file)
+
+                # create new file handler with new file name
+                new_handler = CustomFileHandler(new_file)
+                self.addHandler(new_handler)
+
+            self.exception_has_occurred = True
+
+        super(CustomLogger, self).exception(msg)
+
+
+class CustomFileHandler(logging.FileHandler):
+    """
+    Wrapper for the logging.FileHandler function to update the filehandler with filtering options and similar
+    """
+    def __init__(self, filename):
+        super().__init__(filename)
+        self.addFilter(HostnameFilter())
+        file_format = logging.Formatter("%(asctime)s [%(hostname)s] %(funcName)s() %(levelname)s:%(message)s")
+        self.setLevel(logging.INFO)
+        self.setFormatter(file_format)
+
+
+def get_current_repo_log_directory(start_datetime):
+    """
+    Creates the directory to contain the log files for the current run of the pipeline
+    :param start_datetime: the date that the current pipeline run began
+    :return: the directory (str) to contain the log files
+    """
+    month_log_dir = os.path.join(LOGS_DIR, start_datetime.strftime("%Y-%m"))
+    if not os.path.exists(month_log_dir):
+        os.mkdir(month_log_dir)
+    current_log_dir = os.path.join(month_log_dir, start_datetime.strftime("%Y-%m-%dT%H-%M-%S%z"))
+    if not os.path.exists(current_log_dir):
+        os.mkdir(current_log_dir)
+
+    return current_log_dir
+
+
+def get_logger(repo_owner, repo_name, start_datetime):
+    """
+    Generates a custom logger object from the python logging package for a particular repository. The logging output is
+    redirected to both a log file for the repository and to the terminal. The terminal logging output uses colours to
+    help with readability. The log file will be renamed from something like "vuejs-vue.log" to "vuejs-vue [ERROR].log"
+    if any exceptions occur when processing that repository.
+    :param repo_owner: the owner of the repository, eg. 'facebook'
+    :param repo_name: the name of the repository, eg. 'react'
+    :param start_datetime: the date that the current pipeline run began
+    :return: the custom logger object (logging.Logger)
+    """
+    logging.setLoggerClass(CustomLogger)
+
+    current_log_dir = get_current_repo_log_directory(start_datetime)
+
+    datetime_str = start_datetime.strftime('%Y-%m-%dT%H-%M-%S%z')
+    logger = logging.getLogger(f"{datetime_str}/{repo_owner}/{repo_name}")
+    logger.setLevel(logging.DEBUG)
+
+    if logger.hasHandlers():
+        logger.handlers = []
+
+    # file handler
+    file = CustomFileHandler(os.path.join(current_log_dir, f"{repo_owner}-{repo_name}.log"))
+
+    # stream handler
+    stream = TqdmLoggingHandler()
+    stream.addFilter(HostnameFilter())
+    stream.addFilter(RepositoryFilter(repo_owner, repo_name))
+    stream_format = logging.Formatter(f"{colorama.Fore.GREEN}%(asctime)s "
+                                      f"{colorama.Fore.LIGHTRED_EX}[%(repository)s] "
+                                      f"{colorama.Fore.LIGHTMAGENTA_EX}%(funcName)s() "
+                                      f"{colorama.Fore.LIGHTCYAN_EX}%(levelname)s: "
+                                      f"{colorama.Fore.WHITE}%(message)s")
+    stream.setLevel(logging.INFO)
+    stream.setFormatter(stream_format)
+
+    logger.addHandler(file)
+    logger.addHandler(stream)
+    return logger
 
 
 class Progress(git.RemoteProgress):
@@ -35,8 +212,12 @@ class Progress(git.RemoteProgress):
     Class for showing progress to the console while a repository is cloning locally
     """
 
+    def __init__(self, logger):
+        super().__init__()
+        self.logger = logger
+
     def update(self, op_code, cur_count, max_count=None, message=''):
-        tqdm.write(self._cur_line)
+        self.logger.debug(self._cur_line)
 
 
 def get_releases(repo_owner, repo_name):
@@ -104,17 +285,18 @@ def is_valid_repo_name(repo_str):
     return bool(re.fullmatch(repo_url_pattern, repo_str))
 
 
-def clone_repo(repo_owner, repo_name, print_progress=True):
+def clone_repo(repo_owner, repo_name, logger, print_progress=True):
     """
     Clones a github repository locally
     :param print_progress: True for printing cloning progress to the console, False for no printing
     :param repo_name: the name of the repository. Eg, 'react'
     :param repo_owner: the owner of the repository. Eg, 'facebook'
+    :param logger: The logger object to use for logging information
     :return: repo: the Repo type from gitPython
     """
     remote_url = f"https://github.com/{repo_owner}/{repo_name}.git"
     repo_path = os.path.join(REPOS_DIR, repo_name)
-    repo = git.Repo.clone_from(remote_url, repo_path, progress=Progress() if print_progress else None)
+    repo = git.Repo.clone_from(remote_url, repo_path, progress=Progress(logger) if print_progress else None)
 
     return repo
 
@@ -398,6 +580,7 @@ def process_repository(repo_str):
         - calculate the LOC data for each tag/release by using a command line tool called 'cloc'
         - push the data to mongodb
     :param repo_str: concatenation of the repository owner and name separated by a '/'. Eg, 'facebook/react'
+    :param start_datetime: the date that the pipeline run began
     :return: None
     """
     if not is_valid_repo_name(repo_str):
@@ -406,85 +589,98 @@ def process_repository(repo_str):
 
     repo_owner, repo_name = repo_str.split("/")
 
-    tqdm.write(f"Running pipeline process for repository: {repo_str}")
+    logger = get_logger(repo_owner, repo_name, start_datetime)
 
-    # get repository metadata from the github API
-    tqdm.write("Retrieving repository metadata from the Github REST API")
+    logger.info(f"Running pipeline process for repository: {repo_str}")
+
     try:
-        data = get_repository_metadata(repo_owner, repo_name)
-    except RemoteRepoNotFoundError as e:
-        tqdm.write(e.message)
-        return
+        # get repository metadata from the github API
+        logger.info("Retrieving repository metadata from the Github REST API")
+        try:
+            data = get_repository_metadata(repo_owner, repo_name)
+        except RemoteRepoNotFoundError as e:
+            logger.exception(str(e))
+            return
 
-    repo_path = os.path.join(REPOS_DIR, repo_name)
+        repo_path = os.path.join(REPOS_DIR, repo_name)
 
-    # check if repository is already cloned locally
-    if check_local_repo_exists(repo_name):
-        tqdm.write("using cached repository")
-        repo = git.Repo(repo_path)
-    else:
-        tqdm.write("cloning repository...")
-        repo = clone_repo(repo_owner, repo_name)
+        # check if repository is already cloned locally
+        if check_local_repo_exists(repo_name):
+            logger.info("using cached repository")
+            repo = git.Repo(repo_path)
+        else:
+            logger.info("cloning repository...")
+            repo = clone_repo(repo_owner, repo_name, logger)
 
-    # get the mongoDB client
-    mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+        # get the mongoDB client
+        logger.info("connecting to mongodb")
+        mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
 
-    tqdm.write("calculating commits per author data")
-    data['commits_per_author'] = get_commits_per_author(repo)
+        logger.info("calculating commits per author data")
+        data['commits_per_author'] = get_commits_per_author(repo)
 
-    tqdm.write("calculating commits per month")
-    data['commits_per_month'] = get_monthly_commit_data(repo)
+        logger.info("calculating commits per month")
+        data['commits_per_month'] = get_monthly_commit_data(repo)
 
-    heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo)
-    push_heatmap_data_to_mongodb(repo_owner, repo_name, heatmap_data, mongo_client)
+        logger.info("Generating heatmap data")
+        heatmap_data = generate_heatmap_data(repo_owner, repo_name, repo, mongo_client, logger)
 
-    # get the tags from the repository
-    tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
-    tqdm.write(f"There were {len(tags)} tags found in the repository")
+        logger.info("Pushing heatmap data to mongodb")
+        push_heatmap_data_to_mongodb(repo_owner, repo_name, heatmap_data, mongo_client)
 
-    # adding some tag related information to the repository metadata
-    data["num_tags"] = len(tags)
-    if len(tags) > 0:
-        data["latest_tag"] = tags[-1].name
-    else:
-        data["latest_tag"] = None
+        # get the tags from the repository
+        tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
+        logger.info(f"There were {len(tags)} tags found in the repository")
 
-    # reducing the number of tags
-    tags = reduce_releases(tags, max_releases=30)
-    tqdm.write(f"number of tags reduced to: {len(tags)}")
+        # adding some tag related information to the repository metadata
+        data["num_tags"] = len(tags)
+        if len(tags) > 0:
+            data["latest_tag"] = tags[-1].name
+        else:
+            data["latest_tag"] = None
 
-    g = git.Git(repo_path)  # initialise git in order to checkout each tag
-    tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
+        # reducing the number of tags
+        tags = reduce_releases(tags, max_releases=30)
+        logger.info(f"number of tags reduced to: {len(tags)}")
 
-    for tag in tag_loop:
-        tag_name = tag.name
-        tag_loop.set_description(f"processing tag: {tag}")
-        tag_loop.refresh()
+        g = git.Git(repo_path)  # initialise git in order to checkout each tag
+        tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
 
-        tqdm.write(f"checking out tag: {tag}")
-        g.checkout(tag_name)
+        for tag in tag_loop:
+            tag_name = tag.name
+            tag_loop.set_description(f"processing tag: {tag}")
+            tag_loop.refresh()
 
-        tqdm.write(f"counting LOC for tag: {tag}")
-        # calling the 'cloc' command line tool to count LOC statistics for the repository
-        tag_data = call_cloc(repo_path)  # this data can possibly be used later on
+            logger.info(f"checking out tag: {tag}")
+            g.checkout(tag_name, force=True)
 
-        tqdm.write("pushing to mongodb...")
-        push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
+            logger.info(f"counting LOC for tag: {tag}")
+            # calling the 'cloc' command line tool to count LOC statistics for the repository
+            tag_data = call_cloc(repo_path)  # this data can possibly be used later on
 
-    tqdm.write("Updating the LOC data to limit the number of languages")
-    limit_languages_for_repository(repo_owner, repo_name, mongo_client)
+            logger.info("pushing to mongodb...")
+            push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
 
-    # push the repository data to mongoDB
-    tqdm.write("Pushing repository data to mongoDB")
-    push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
+        logger.info("Updating the LOC data to limit the number of languages")
+        limit_languages_for_repository(repo_owner, repo_name, mongo_client)
 
-    tqdm.write("Collecting SCA data")
-    collect_scantist_sca_data(REPOS_DIR, repo_path, repo_owner, repo_name, mongo_client)
+        # push the repository data to mongoDB
+        logger.info("Pushing repository data to mongoDB")
+        push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
 
-    tqdm.write("Generating dynamic colours for the repository")
-    generate_repository_colours(repo_owner, repo_name, mongo_client)
+        try:
+            logger.info("Collecting SCA data")
+            collect_scantist_sca_data(REPOS_DIR, repo_path, repo_owner, repo_name, mongo_client, logger)
+        except Exception as err:
+            logger.exception(err)
 
-    repo.close()
-    time.sleep(2)  # to wait for the previous git related processes to release the repository
-    tqdm.write("deleting local repository...")
-    clean_up_repo(repo_name)
+        logger.info("Generating dynamic colours for the repository")
+        generate_repository_colours(repo_owner, repo_name, mongo_client)
+
+        repo.close()
+        time.sleep(2)  # to wait for the previous git related processes to release the repository
+        logger.info("deleting local repository...")
+        clean_up_repo(repo_name)
+
+    except Exception as e:
+        logger.exception(str(e))

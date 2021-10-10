@@ -153,7 +153,7 @@ def push_scantist_sca_data_to_mongodb(repo_owner, repo_name, data, client):
     sca_collection.update_one(search_dict, {'$set': data}, upsert=True)
 
 
-def collect_scantist_sca_data(repos_dir, repo_path, repo_owner, repo_name, mongo_client):
+def collect_scantist_sca_data(repos_dir, repo_path, repo_owner, repo_name, mongo_client, logger):
     """
     Main function for integrating the pipeline with the Scantist SCA CLI. This function downloads the Scantist
     bom-detector.jar file (if needed), triggers a CLI scan, reads the results, generates the data needed for a
@@ -163,21 +163,22 @@ def collect_scantist_sca_data(repos_dir, repo_path, repo_owner, repo_name, mongo
     :param repo_owner: the owner of the repository
     :param repo_name: the name of the repository
     :param mongo_client: the MongoClient object for PyMongo
+    :param logger: The logger object to use for logging information
     :return: None
     """
     # downloading the scantist-bom-detector
-    tqdm.write('checking if the scantist-bom-detector is already downloaded')
+    logger.info('checking if the scantist-bom-detector is already downloaded')
     did_download, bom_detector_path = download_scantist_bom_detector(repos_dir)
     if did_download:
-        tqdm.write("Scantist_bom_detector downloaded successfully")
+        logger.info("Scantist_bom_detector downloaded successfully")
     else:
-        tqdm.write("Scantist_bom_detector was found locally")
+        logger.info("Scantist_bom_detector was found locally")
 
-    tqdm.write("Triggering Scantist SCA scan")
+    logger.info("Triggering Scantist SCA scan")
     try:
         sca_report_data, dep_tree_data = call_scantist_sca(repo_path, bom_detector_path)
 
-        tqdm.write("Generating node link data")
+        logger.info("Generating node link data")
         node_link_data = generate_node_link_data(dep_tree_data, sca_report_data)
 
         data = {

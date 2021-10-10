@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from perceval.backends.core.github import GitHub
 from tqdm import tqdm
+from bson.codec_options import CodecOptions
 
 load_dotenv()
 ACCESS_TOKENS = [os.environ.get('ACCESS_TOKEN')]
@@ -85,7 +86,7 @@ def commit_is_in_week(commit, start_of_week, end_of_week):
     return start_of_week < commit.committed_datetime < end_of_week
 
 
-def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format="%Y-%m-%dT%H:%M:%S%z"):
+def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, logger, date_format="%Y-%m-%dT%H:%M:%S%z"):
     """
     Retrieves a repository's issues from the github API. Due the the very slow process of retrieving issues from the
     github API, any issues that are extracted will be stored in mongodb so that they do not need to be retrieved from
@@ -97,11 +98,12 @@ def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format=
     :param repo: the repo object (from perceval)
     :param num_weeks: the number of weeks from the current date to retrieve issues from
     :param client: the MongoClient object from PyMongo
+    :param logger: The logger object to use for logging information
     :param date_format: the date format to use when representing dates as strings
     :return: the json object with the issue data for the last num_weeks weeks
     """
     db = client["test_db"]
-    issue_collection = db["issues"]
+    issue_collection = db["issues"].with_options(codec_options=CodecOptions(tz_aware=True, tzinfo=timezone.utc))
     json_data = {}
 
     current_date = datetime.now(timezone.utc)
@@ -125,13 +127,13 @@ def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format=
                     db_issue[date_str] = db_issue[date_str].strftime(date_format)
         json_data[db_issue["id"]] = db_issue
 
-    tqdm.write(f"There were {len(json_data.keys())} relevant issues already found in the database")
+    logger.info(f"There were {len(json_data.keys())} relevant issues already found in the database")
 
     # get the new cut off date (if there were issues already in the database)
     if most_recent_update is not None:
         cut_off_date = most_recent_update
 
-    tqdm.write(f"Finding github issues since {cut_off_date.strftime(date_format)}")
+    logger.info(f"Finding github issues since {cut_off_date.strftime(date_format)}")
 
     for item in tqdm(
             repo.fetch(from_date=cut_off_date, to_date=current_date, category="issue"),
@@ -162,11 +164,11 @@ def retrieve_issues(repo_owner, repo_name, repo, num_weeks, client, date_format=
 
         issue_collection.update_one(search, {"$set": issue_to_insert}, upsert=True)
 
-    tqdm.write("Issue data extracted to JSON")
+    logger.info("Issue data successfully retrieved")
     return json_data
 
 
-def retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, client, date_format="%Y-%m-%dT%H:%M:%S%z"):
+def retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, client, logger, date_format="%Y-%m-%dT%H:%M:%S%z"):
     """
     Retrieves a repository's pull requests from the github API. Due the the very slow process of retrieving pull
     requests from the github API, any pull requests that are extracted will be stored in mongodb so that they do not
@@ -178,11 +180,12 @@ def retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, client, date_
     :param repo: the repo object (from perceval)
     :param num_weeks: the number of weeks from the current date to retrieve issues from
     :param client: the MongoClient object from PyMongo
+    :param logger: The logger object to use for logging information
     :param date_format: the date format to use when representing dates as strings
     :return: the json object with the pull request data for the last num_weeks weeks
     """
     db = client["test_db"]
-    pr_collection = db["pull_requests"]
+    pr_collection = db["pull_requests"].with_options(codec_options=CodecOptions(tz_aware=True, tzinfo=timezone.utc))
     json_data = {}
 
     current_date = datetime.now(timezone.utc)
@@ -206,22 +209,19 @@ def retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, client, date_
                     db_pull_request[date_str] = db_pull_request[date_str].strftime(date_format)
         json_data[db_pull_request["id"]] = db_pull_request
 
-    tqdm.write(f"There were {len(json_data.keys())} relevant issues already found in the database")
+    logger.info(f"There were {len(json_data.keys())} relevant pull requests already found in the database")
 
     # get the new cut off date (if there were pull requests already in the database)
     if most_recent_update is not None:
         cut_off_date = most_recent_update
 
-    tqdm.write(f"Finding github issues since {cut_off_date.strftime(date_format)}")
+    logger.info(f"Finding github pull requests since {cut_off_date.strftime(date_format)}")
 
     for item in tqdm(
             repo.fetch(from_date=cut_off_date, to_date=current_date, category="pull_request"),
             desc="fetching pull request data"):
 
         if 'pull_request' in item['data']:
-            print("the random if statement is actually triggering")
-            with open('random_data.json', 'w') as file:
-                json.dump(item, file, indent=4)
             continue
 
         num = str(item['data']['number'])
@@ -270,7 +270,7 @@ def retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, client, date_
 
         pr_collection.update_one(search, {"$set": pr_to_insert}, upsert=True)
 
-    tqdm.write("Pull Request data extracted to JSON")
+    logger.info("Pull Request data successfully retrieved")
     return json_data
 
 
@@ -291,13 +291,14 @@ def retrieve_commits(repo_instance):
     return commit_list
 
 
-def generate_heatmap_data(repo_owner, repo_name, repo_instance, mongo_client, dimensions=(19, 8)):
+def generate_heatmap_data(repo_owner, repo_name, repo_instance, mongo_client, logger, dimensions=(19, 8)):
     """
     Generates the heatmap data. The data includes metrics for issues, pull requests and commit frequency.
     :param repo_owner: the owner of the repository
     :param repo_name: the name of the repository
     :param repo_instance: the local git Repo object
     :param mongo_client: the MongoClient object from PyMongo
+    :param logger: The logger object to use for logging information
     :param dimensions: the dimensions of the heatmap to generate (width, height)
     :return: an array containing the necessary data for the heatmap
     """
@@ -318,8 +319,8 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, mongo_client, di
         sleep_time=300
     )
 
-    issues = retrieve_issues(repo_owner, repo_name, repo, num_weeks, mongo_client)
-    pull_requests = retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, mongo_client)
+    issues = retrieve_issues(repo_owner, repo_name, repo, num_weeks, mongo_client, logger)
+    pull_requests = retrieve_pull_requests(repo_owner, repo_name, repo, num_weeks, mongo_client, logger)
     commits = retrieve_commits(repo_instance)
 
     for start_of_week, end_of_week in date_span(start_date, end_date):
