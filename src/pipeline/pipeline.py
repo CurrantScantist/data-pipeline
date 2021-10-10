@@ -373,6 +373,21 @@ def reduce_releases(releases, max_releases=15):
     return [first] + good_releases + [last]
 
 
+def get_current_repo_names(mongo_client=None):
+    """
+    Retrieves a list of the repository strings for the repositories currently in the database
+    :param mongo_client: the MongoClient object from pymongo
+    :return: a generator object with the repository strings in the form <owner>/<name>
+    """
+    if mongo_client is None:
+        mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+    db = mongo_client['test_db']
+    repo_collection = db['repositories']
+    projection = {"_id": 0, "name": 1, "owner": 1}
+    for repo in repo_collection.find({}, projection):
+        yield f"{repo['owner']}/{repo['name']}"
+
+
 def process_repository(repo_str):
     """
     Processes the repository by doing the following:
