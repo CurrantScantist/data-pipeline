@@ -60,7 +60,7 @@ def test_clone_repo(mocker):
         'git.Repo.clone_from',
         return_value='return'
     )
-    result = pipeline.clone_repo(owner, repo, print_progress=False)
+    result = pipeline.clone_repo(owner, repo, None, print_progress=False)
     assert result == 'return'
 
 

@@ -88,7 +88,7 @@ def test_commit_is_in_week():
     assert not generate_heatmap_data.commit_is_in_week(commit, start, end)
 
 
-def test_retrieve_issues():
+def test_retrieve_issues(mock_logger):
     issues = [
         {
             "data": {"number": "1",
@@ -123,17 +123,19 @@ def test_retrieve_issues():
     mock_collection = MagicMock()
     mock_collection.find = MagicMock(return_value={})
     mock_collection.update_one = MagicMock(return_value={})
+    with_options_mock = MagicMock()
+    with_options_mock.with_options = MagicMock(return_value=mock_collection)
     mock_client = {
         'test_db': {
-            'issues': mock_collection
+            'issues': with_options_mock
         }
     }
     owner = "owner"
     name = "name"
 
-    data = generate_heatmap_data.retrieve_issues(owner, name, repo, 1, mock_client)
+    data = generate_heatmap_data.retrieve_issues(owner, name, repo, 1, mock_client, mock_logger)
 
-    mock_client['test_db']['issues'].find.assert_called_once()
+    mock_collection.find.assert_called_once()
 
     assert data == {
         "1": {
@@ -160,7 +162,7 @@ def test_retrieve_issues():
     }
 
 
-def test_retrieve_pull_requests():
+def test_retrieve_pull_requests(mock_logger):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(current_dir, 'github_pull_request.json'), 'r') as file:
         pull_requests = json.load(file)["data"]
@@ -176,17 +178,19 @@ def test_retrieve_pull_requests():
     mock_collection = MagicMock()
     mock_collection.find = MagicMock(return_value={})
     mock_collection.update_one = MagicMock(return_value={})
+    with_options_mock = MagicMock()
+    with_options_mock.with_options = MagicMock(return_value=mock_collection)
     mock_client = {
         'test_db': {
-            'pull_requests': mock_collection
+            'pull_requests': with_options_mock
         }
     }
     owner = "owner"
     name = "name"
 
-    actual_data = generate_heatmap_data.retrieve_pull_requests(owner, name, repo, 1, mock_client)
+    actual_data = generate_heatmap_data.retrieve_pull_requests(owner, name, repo, 1, mock_client, mock_logger)
 
-    mock_client['test_db']['pull_requests'].find.assert_called_once()
+    mock_collection.find.assert_called_once()
 
     assert actual_data == expected_data
 
