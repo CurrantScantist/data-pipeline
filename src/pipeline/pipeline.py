@@ -570,7 +570,7 @@ def get_current_repo_names(mongo_client=None):
         yield f"{repo['owner']}/{repo['name']}"
 
 
-def process_repository(repo_str):
+def process_repository(repo_str, start_datetime):
     """
     Processes the repository by doing the following:
         - validate the repository input

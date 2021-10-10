@@ -32,16 +32,18 @@ if __name__ == '__main__':
     parser.add_argument('--log-dir', '-l', type=str, help="The directory to create the log files")
     args = parser.parse_args()
 
+    current_datetime = datetime.datetime.now()
+
     # process a single repository
     if args.repository is not None:
-        process_repository(args.repository)
+        process_repository(args.repository, current_datetime)
 
     # process repositories from a list in a text file
     elif args.repo_list is not None:
         for line in args.repo_list:
-            process_repository(line.strip())
+            process_repository(line.strip(), current_datetime)
 
     # process the repositories currently in the database
     elif args.current_repos:
         for repo_str in get_current_repo_names():
-            process_repository(repo_str)
+            process_repository(repo_str, current_datetime)
