@@ -48,7 +48,7 @@ SCANTIST_URL = "http://..."
 
 The data pipeline can be run via the command line using the following options
 
-```shell
+```text
 usage: main.py [-h] (--repository REPOSITORY | --repo-list REPO_LIST | --current-repos)
 
 FIT4002 Team 02 Data Pipeline
