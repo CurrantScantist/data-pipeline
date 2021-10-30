@@ -9,27 +9,12 @@ if __name__ == '__main__':
     load_dotenv()
     parser = argparse.ArgumentParser(description="FIT4002 Team 02 Data Pipeline")
 
-    """
-    options:
-     - input.txt file
-     - single repository name
-     - repositories currently in the db
-     - limit the number of languages displayed?
-     - change the colours?
-     
-    extra:
-     - log directory
-     - bool for whether to log to a file or not
-     - bool for whether to override existing data in the database?
-    """
-
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--repository', '-r', type=str, help="The repository written as '<owner>/<name>'")
     group.add_argument('--repo-list', '-i', type=argparse.FileType('r', encoding='utf-8'),
                        help="A text file containing a repository for each line in the form '<owner>/<name>'")
     group.add_argument('--current-repos', '-c', action='store_true',
                        help="Process the repositories currently stored in the database")
-    parser.add_argument('--log-dir', '-l', type=str, help="The directory to create the log files")
     args = parser.parse_args()
 
     current_datetime = datetime.datetime.now()
