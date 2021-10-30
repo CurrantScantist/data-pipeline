@@ -6,10 +6,17 @@ This repository contains the data pipeline responsible for populating the databa
 
 ### python virtual environment
 First make sure you have a virtual environment setup and activated.
-Then run the following command:
+Then run the following command in the repository root directory:
 ```shell
 pip install -r requirements.txt
 ```
+
+### CLI dependencies
+In order for the LOC statistics to be calculated you must have 'cloc' installed on your system and it must
+be accessible from the terminal by running the ```cloc``` command. The tool can be found here https://github.com/AlDanial/cloc
+
+To access the Scantist SCA CLI, you must have Java (minimum JDK 1.8) installed on your machine.
+The Scantist Docs can be accessed here: https://scantist.atlassian.net/wiki/spaces/SD/overview
 
 ### environment variables (.env)
 You will need to create a file for environment variables named **.env** in the repository directory which contains the necessary
@@ -30,27 +37,29 @@ ACCESS_TOKEN5 = "abcdedfgh47873891238" # optional
 
 # Access Token for Scantist SCA
 SCANTISTTOKEN = "abcdedfgh47873891238"
+
+# URL for Scantist SCA server
+SCANTIST_URL = "http://..."
 ```
-
-### CLI dependencies
-In order for the LOC statistics to be calculated you must have 'cloc' installed on your system and it must
-be accessible from the terminal by running the ```cloc``` command. The tool can be found here https://github.com/AlDanial/cloc
-
 
 ## Usage
 
-### Process repositories from a list
+### CLI
 
-Edit the /src/input.txt file to contain the repositories you want to process as shown below.
-```text
-sveltejs/svelte
-vuejs/vue
-facebook/react
-angular/angular
-```
-Then run the pipeline by typing the following into the terminal
+The data pipeline can be run via the command line using the following options
+
 ```shell
-python src/main.py
+usage: main.py [-h] (--repository REPOSITORY | --repo-list REPO_LIST | --current-repos)
+
+FIT4002 Team 02 Data Pipeline
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --repository REPOSITORY, -r REPOSITORY
+                        The repository written as '<owner>/<name>'
+  --repo-list REPO_LIST, -i REPO_LIST
+                        A text file containing a repository for each line in the form '<owner>/<name>'
+  --current-repos, -c   Process the repositories currently stored in the database
 ```
 
 ### Logging
