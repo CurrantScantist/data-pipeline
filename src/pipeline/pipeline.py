@@ -639,6 +639,10 @@ def process_repository(repo_str, start_datetime):
         else:
             data["latest_tag"] = None
 
+        # push the repository data to mongoDB
+        logger.info("Pushing repository data to mongoDB")
+        push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
+
         # reducing the number of tags
         tags = reduce_releases(tags, max_releases=30)
         logger.info(f"number of tags reduced to: {len(tags)}")
@@ -646,27 +650,26 @@ def process_repository(repo_str, start_datetime):
         g = git.Git(repo_path)  # initialise git in order to checkout each tag
         tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
 
-        for tag in tag_loop:
-            tag_name = tag.name
-            tag_loop.set_description(f"processing tag: {tag}")
-            tag_loop.refresh()
+        try:
+            for tag in tag_loop:
+                tag_name = tag.name
+                tag_loop.set_description(f"processing tag: {tag}")
+                tag_loop.refresh()
 
-            logger.info(f"checking out tag: {tag}")
-            g.checkout(tag_name, force=True)
+                logger.info(f"checking out tag: {tag}")
+                g.checkout(tag_name, force=True)
 
-            logger.info(f"counting LOC for tag: {tag}")
-            # calling the 'cloc' command line tool to count LOC statistics for the repository
-            tag_data = call_cloc(repo_path)  # this data can possibly be used later on
+                logger.info(f"counting LOC for tag: {tag}")
+                # calling the 'cloc' command line tool to count LOC statistics for the repository
+                tag_data = call_cloc(repo_path)  # this data can possibly be used later on
 
-            logger.info("pushing to mongodb...")
-            push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
+                logger.info("pushing to mongodb...")
+                push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
+        except Exception as err:
+            logger.exception(err)
 
         logger.info("Updating the LOC data to limit the number of languages")
         limit_languages_for_repository(repo_owner, repo_name, mongo_client)
-
-        # push the repository data to mongoDB
-        logger.info("Pushing repository data to mongoDB")
-        push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
 
         try:
             logger.info("Collecting SCA data")
