@@ -422,7 +422,7 @@ def call_cloc(repo_path, include_header=False):
     :param include_header: whether to include the header information in the output
     :return: The output of the 'cloc' tool in a dictionary format
     """
-    p = subprocess.run(f"cloc . --vcs=git --json", cwd=repo_path, capture_output=True)
+    p = subprocess.run(f"cloc . --vcs=git --json", cwd=repo_path, capture_output=True, shell=True)
     if p.returncode != 0:
         raise SystemError(p.stderr)
 
