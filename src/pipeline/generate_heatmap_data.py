@@ -330,7 +330,7 @@ def generate_heatmap_data(repo_owner, repo_name, repo_instance, mongo_client, lo
             "start": start_of_week.strftime('%Y-%m-%d-%H'),
             "end": end_of_week.strftime('%Y-%m-%d-%H'),
             "coords": {
-                "x": dimensions[0] - (index // dimensions[1]),
+                "x": dimensions[0] - (index // dimensions[1]) - 1,
                 "y": index % dimensions[1]
             },
             "issues": {
