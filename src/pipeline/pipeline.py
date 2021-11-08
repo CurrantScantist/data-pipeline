@@ -598,6 +598,7 @@ def process_repository(repo_str, start_datetime):
         logger.info("Retrieving repository metadata from the Github REST API")
         try:
             data = get_repository_metadata(repo_owner, repo_name)
+            data["last_pipeline_run_at"] = datetime.datetime.now()
         except RemoteRepoNotFoundError as e:
             logger.exception(str(e))
             return
