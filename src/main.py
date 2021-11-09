@@ -1,14 +1,34 @@
-from pipeline.pipeline import process_repository
+from pipeline.pipeline import process_repository, get_current_repo_names
 import datetime
 import os
+import argparse
+from dotenv import load_dotenv
+
 
 if __name__ == '__main__':
-    # repo_input = input("Please enter a repository (eg, 'facebook/react'): ")
-    # process_repository(repo_input)
+    load_dotenv()
+    parser = argparse.ArgumentParser(description="FIT4002 Team 02 Data Pipeline")
 
-    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-    start_datetime = datetime.datetime.now()
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--repository', '-r', type=str, help="The repository written as '<owner>/<name>'")
+    group.add_argument('--repo-list', '-i', type=argparse.FileType('r', encoding='utf-8'),
+                       help="A text file containing a repository for each line in the form '<owner>/<name>'")
+    group.add_argument('--current-repos', '-c', action='store_true',
+                       help="Process the repositories currently stored in the database")
+    args = parser.parse_args()
 
-    with open(os.path.join(CURRENT_DIR, 'input.txt'), 'r') as input_file:
-        for line in input_file:
-            process_repository(line.strip(), start_datetime)
+    current_datetime = datetime.datetime.now()
+
+    # process a single repository
+    if args.repository is not None:
+        process_repository(args.repository, current_datetime)
+
+    # process repositories from a list in a text file
+    elif args.repo_list is not None:
+        for line in args.repo_list:
+            process_repository(line.strip(), current_datetime)
+
+    # process the repositories currently in the database
+    elif args.current_repos:
+        for repo_str in get_current_repo_names():
+            process_repository(repo_str, current_datetime)

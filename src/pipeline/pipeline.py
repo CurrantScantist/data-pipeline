@@ -422,7 +422,7 @@ def call_cloc(repo_path, include_header=False):
     :param include_header: whether to include the header information in the output
     :return: The output of the 'cloc' tool in a dictionary format
     """
-    p = subprocess.run(f"cloc . --vcs=git --json", cwd=repo_path, capture_output=True)
+    p = subprocess.run(f"cloc . --vcs=git --json", cwd=repo_path, capture_output=True, shell=True)
     if p.returncode != 0:
         raise SystemError(p.stderr)
 
@@ -555,6 +555,21 @@ def reduce_releases(releases, max_releases=15):
     return [first] + good_releases + [last]
 
 
+def get_current_repo_names(mongo_client=None):
+    """
+    Retrieves a list of the repository strings for the repositories currently in the database
+    :param mongo_client: the MongoClient object from pymongo
+    :return: a generator object with the repository strings in the form <owner>/<name>
+    """
+    if mongo_client is None:
+        mongo_client = MongoClient(CONNECTION_STRING, ssl_cert_reqs=ssl.CERT_NONE)
+    db = mongo_client['test_db']
+    repo_collection = db['repositories']
+    projection = {"_id": 0, "name": 1, "owner": 1}
+    for repo in repo_collection.find({}, projection):
+        yield f"{repo['owner']}/{repo['name']}"
+
+
 def process_repository(repo_str, start_datetime):
     """
     Processes the repository by doing the following:
@@ -583,6 +598,7 @@ def process_repository(repo_str, start_datetime):
         logger.info("Retrieving repository metadata from the Github REST API")
         try:
             data = get_repository_metadata(repo_owner, repo_name)
+            data["last_pipeline_run_at"] = datetime.datetime.now()
         except RemoteRepoNotFoundError as e:
             logger.exception(str(e))
             return
@@ -624,6 +640,10 @@ def process_repository(repo_str, start_datetime):
         else:
             data["latest_tag"] = None
 
+        # push the repository data to mongoDB
+        logger.info("Pushing repository data to mongoDB")
+        push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
+
         # reducing the number of tags
         tags = reduce_releases(tags, max_releases=30)
         logger.info(f"number of tags reduced to: {len(tags)}")
@@ -631,27 +651,26 @@ def process_repository(repo_str, start_datetime):
         g = git.Git(repo_path)  # initialise git in order to checkout each tag
         tag_loop = tqdm(tags, desc="calculating LOC for each tag")  # tqdm object for displaying the progress bar
 
-        for tag in tag_loop:
-            tag_name = tag.name
-            tag_loop.set_description(f"processing tag: {tag}")
-            tag_loop.refresh()
+        try:
+            for tag in tag_loop:
+                tag_name = tag.name
+                tag_loop.set_description(f"processing tag: {tag}")
+                tag_loop.refresh()
 
-            logger.info(f"checking out tag: {tag}")
-            g.checkout(tag_name, force=True)
+                logger.info(f"checking out tag: {tag}")
+                g.checkout(tag_name, force=True)
 
-            logger.info(f"counting LOC for tag: {tag}")
-            # calling the 'cloc' command line tool to count LOC statistics for the repository
-            tag_data = call_cloc(repo_path)  # this data can possibly be used later on
+                logger.info(f"counting LOC for tag: {tag}")
+                # calling the 'cloc' command line tool to count LOC statistics for the repository
+                tag_data = call_cloc(repo_path)  # this data can possibly be used later on
 
-            logger.info("pushing to mongodb...")
-            push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
+                logger.info("pushing to mongodb...")
+                push_release_to_mongodb(repo_owner, repo_name, tag, tag_data, mongo_client)
+        except Exception as err:
+            logger.exception(err)
 
         logger.info("Updating the LOC data to limit the number of languages")
         limit_languages_for_repository(repo_owner, repo_name, mongo_client)
-
-        # push the repository data to mongoDB
-        logger.info("Pushing repository data to mongoDB")
-        push_repository_to_mongodb(repo_owner, repo_name, data, mongo_client)
 
         try:
             logger.info("Collecting SCA data")
